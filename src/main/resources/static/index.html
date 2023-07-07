@@ -69,6 +69,8 @@
 											icon="el-icon-edit">Rename</el-dropdown-item>
 										<el-dropdown-item command="size" :disabled="multipleSelection.length == 0"
 											icon="el-icon-s-data">Get Size</el-dropdown-item>
+											<el-dropdown-item command="download-zip" :disabled="multipleSelection.length == 0"
+											icon="el-icon-s-data">Download Zip</el-dropdown-item>
 									</el-dropdown-menu>
 								</el-dropdown>
 							</div>
@@ -83,8 +85,15 @@
 							</div>
 							<div style="flex: 1 1"></div>
 							<div>
-								<el-button style="float:right" type="primary" @click="addDirectory()" size="small"
-									icon="el-icon-plus">New Folder</el-button>
+								<el-dropdown trigger="click" @command="newCommand">
+									<el-button style="float:right" type="primary" size="small"
+										icon="el-icon-plus">New</el-button>
+									<el-dropdown-menu slot="dropdown">
+										<el-dropdown-item command="folder"
+											icon="el-icon-folder">Folder</el-dropdown-item>
+										<el-dropdown-item command="file" icon="el-icon-document">File</el-dropdown-item>
+									</el-dropdown-menu>
+								</el-dropdown>
 							</div>
 						</div>
 					</el-col>
@@ -153,29 +162,35 @@
 									<template slot-scope="scope">
 										<div style="display:flex">
 											<div style="flex:1;cursor:pointer">
-												<el-dropdown trigger="click"
-													@command="handleRowActions">
+												<el-dropdown trigger="click" @command="handleRowActions">
 													<el-button type="primary" size="mini"
 														style="padding:5px;color:#fff;background-color:#eee;border-color:#eee">
 														<i class="el-icon-more" style="color:#222"></i>
 													</el-button>
 													<el-dropdown-menu slot="dropdown">
-														<el-dropdown-item :command="{command: 'download', name: scope.row.name}"
+														<el-dropdown-item
+															:command="{command: 'download', name: scope.row.name}"
 															icon="el-icon-download">Download</el-dropdown-item>
-														<el-dropdown-item :command="{command: 'view', name: scope.row.name}"
+														<el-dropdown-item
+															:command="{command: 'view', name: scope.row.name}"
 															v-if="!scope.row.isDir && scope.row.isTextFile"
 															icon="el-icon-document">View</el-dropdown-item>
-														<el-dropdown-item :command="{command: 'cut', name: scope.row.name}"
+														<el-dropdown-item
+															:command="{command: 'cut', name: scope.row.name}"
 															icon="el-icon-scissors">Cut</el-dropdown-item>
-														<el-dropdown-item :command="{command: 'copy', name: scope.row.name}"
+														<el-dropdown-item
+															:command="{command: 'copy', name: scope.row.name}"
 															icon="el-icon-document-copy">Copy</el-dropdown-item>
-														<el-dropdown-item :command="{command: 'rename', name: scope.row.name}"
+														<el-dropdown-item
+															:command="{command: 'rename', name: scope.row.name}"
 															icon="el-icon-edit">Rename</el-dropdown-item>
-														<el-dropdown-item :command="{command: 'delete', name: scope.row.name}"
+														<el-dropdown-item
+															:command="{command: 'delete', name: scope.row.name}"
 															icon="el-icon-delete">Delete</el-dropdown-item>
-														<el-dropdown-item :command="{command: 'size', name: scope.row.name}"
-															v-if="scope.row.isDir || isMobile"
-															icon="el-icon-s-data">Get Size</el-dropdown-item>
+														<el-dropdown-item
+															:command="{command: 'size', name: scope.row.name}"
+															v-if="scope.row.isDir || isMobile" icon="el-icon-s-data">Get
+															Size</el-dropdown-item>
 													</el-dropdown-menu>
 												</el-dropdown>
 											</div>
@@ -536,6 +551,8 @@
 						this.fetchSize();
 					} else if (command == 'delete') {
 						this.delete();
+					} else if (command == 'download-zip') {
+						this.downloadZip();
 					}
 				},
 
@@ -619,7 +636,7 @@
 						this.textEditorCurrentOpenedFileName = name;
 						this.textEditorDialogueContent = response.data;
 						this.textEditorDialogueVisibility = true;
-						
+
 					}).catch(() => {
 						this.$message({
 							type: 'error',
@@ -837,6 +854,67 @@
 
 				download(name) {
 					document.location = '/apis/download?path=' + encodeURIComponent((this.currentDir == '/' ? '/' : this.currentDir + '/') + name);
+				},
+
+				newCommand(command) {
+					if (command == 'folder') {
+						this.addDirectory();
+					} else {
+						this.$prompt('Please enter file name', {
+							confirmButtonText: 'Add',
+							cancelButtonText: 'Cancel',
+						}).then(name => {
+							name = name.value;
+							for (let obj of this.tableData) {
+								if (obj.name == name) {
+									this.$message({
+										type: 'error',
+										message: 'Unable to add file, already exists.',
+										center: true
+									});
+									return;
+								}
+							}
+							debugger;
+							this.tableData.push({
+								'name': name,
+								'isDir': false,
+								'isTextFile': true,
+								'size': "0 B"
+							});
+							this.textEditorCurrentOpenedFileName = name;
+							this.textEditorDialogueContent = '';
+							this.textEditorDialogueVisibility = true;
+						}).catch(() => { });
+					}
+				},
+
+				downloadZip() {
+					axios.post('/apis/download-zip', {
+						'sourceDir': this.currentDir,
+						'files': this.multipleSelection
+					}, { responseType: 'blob' })
+						.then(response => {
+							// Retrieve the filename from the Content-Disposition header
+							const contentDisposition = response.headers['content-disposition'];
+							const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+							const matches = filenameRegex.exec(contentDisposition);
+							const filename = matches && matches[1] ? matches[1].replace(/['"]/g, '') : 'output.zip';
+
+							// Create a temporary URL for the downloaded file
+							const url = window.URL.createObjectURL(response.data);
+
+							// Open a new window or tab with the download URL
+							window.open(url, '_blank');
+
+							// Clean up the temporary URL after a short delay
+							setTimeout(() => {
+								window.URL.revokeObjectURL(url);
+							}, 100);
+						})
+						.catch(error => {
+							console.error('Error:', error);
+						});
 				}
 			}
 		});

@@ -15,12 +15,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.PrintWriter;
+import javax.servlet.http.HttpServletResponse;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 @RestController
 @RequestMapping("apis")
@@ -166,6 +168,81 @@ public class FileController {
 			out.flush();
 		}
 		return fileService.bytesToString(content.getBytes().length);
+	}
+
+	@PostMapping("/download-zip")
+	public void createAndDownloadZip(@RequestBody FormParams params, HttpServletResponse response) {
+
+		String parentDir =  fileService.parsePath(params.getSourceDir()).getAbsolutePath();
+
+		try {
+			// Set the response headers
+			response.setContentType("application/zip");
+			response.setHeader("Content-Disposition", "attachment; filename=\"output.zip\"");
+
+			// Write the zip file content to the response output stream
+			OutputStream outputStream = response.getOutputStream();
+			ZipOutputStream zos = new ZipOutputStream(outputStream);
+			addToZip(parentDir, params.getFiles(), zos);
+			zos.close();
+			outputStream.flush();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	private static void addToZip(String parentDir, List<String> fileAndDirNames, ZipOutputStream zos) throws IOException {
+		for (String name : fileAndDirNames) {
+			Path path = Paths.get(parentDir, name);
+			if (!Files.exists(path)) {
+				System.out.println("File or directory not found: " + path);
+				continue;
+			}
+
+			if (Files.isDirectory(path)) {
+				addDirectoryToZip(parentDir, path.toString(), zos);
+			} else {
+				FileInputStream fis = new FileInputStream(path.toFile());
+
+				ZipEntry zipEntry = new ZipEntry(name);
+				zos.putNextEntry(zipEntry);
+
+				byte[] buffer = new byte[1024];
+				int length;
+				while ((length = fis.read(buffer)) > 0) {
+					zos.write(buffer, 0, length);
+				}
+
+				fis.close();
+				zos.closeEntry();
+			}
+		}
+	}
+
+	private static void addDirectoryToZip(String rootDir, String currentDir, ZipOutputStream zos) throws IOException {
+		File dir = new File(currentDir);
+		File[] files = dir.listFiles();
+
+		for (File file : files) {
+			if (file.isDirectory()) {
+				addDirectoryToZip(rootDir, file.getAbsolutePath(), zos);
+			} else {
+				FileInputStream fis = new FileInputStream(file);
+				String entryName = file.getAbsolutePath().replace(rootDir, "");
+
+				ZipEntry zipEntry = new ZipEntry(entryName);
+				zos.putNextEntry(zipEntry);
+
+				byte[] buffer = new byte[1024];
+				int length;
+				while ((length = fis.read(buffer)) > 0) {
+					zos.write(buffer, 0, length);
+				}
+
+				fis.close();
+				zos.closeEntry();
+			}
+		}
 	}
 
 
