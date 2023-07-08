@@ -326,9 +326,10 @@
 							let fd = new FormData();
 							let xhr = new XMLHttpRequest();
 							fd.append('upload', blob, this.file.name);
+							fd.append('actualFileName', file.name);
 							fd.append('fileUniqueId', this.fileUniqueId);
-							fd.append('num', chunkToUpload);
-							fd.append('num_chunks', this.totalNoOfChunks);
+							fd.append('chunkNumber', chunkToUpload);
+							fd.append('totalChunks', this.totalNoOfChunks);
 							fd.append('parentDir', this.parentDir);
 							xhr.open('POST', '/apis/upload', true);
 							this.threads[chunkToUpload] = {};

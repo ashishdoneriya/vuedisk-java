@@ -4,19 +4,18 @@ import com.csetutorials.fileserver.beans.FilesListObj;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
 
-import java.io.BufferedInputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.net.URL;
+import java.io.*;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.text.DecimalFormat;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Stack;
+import java.util.*;
 import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 @Service
 @Log4j2
@@ -59,7 +58,7 @@ public class FileService {
 			FilesListObj obj = new FilesListObj();
 			obj.setName(file.getName());
 			obj.setDir(file.isDirectory());
-			obj.setSize(bytesToString(file.length()));
+			obj.setSize(getSizeInString(file.length()));
 			if (!obj.isDir()) {
 				try {
 					String mime = Files.probeContentType(file.toPath());
@@ -80,8 +79,7 @@ public class FileService {
 			log.warn("Couldn't create dir {}", destinationDir.getAbsolutePath());
 			return;
 		}
-		Stack<File> stack = new Stack<>();
-		stack.addAll(parsePaths(sourceDir, files));
+		Deque<File> stack = new LinkedList<>(parsePaths(sourceDir, files));
 		while (!stack.isEmpty()) {
 			File file = stack.pop();
 			if (!file.exists()) {
@@ -89,12 +87,10 @@ public class FileService {
 			}
 			File target = new File(destinationDir.getAbsolutePath() + File.separator + file.getAbsolutePath().substring(sourceDir.getAbsolutePath().length() + 1));
 			if (file.isDirectory()) {
-				target.mkdirs();
+				mkdirs(target);
 				File[] arr = file.listFiles();
-				if (arr != null && arr.length > 0) {
-					for (File temp : arr) {
-						stack.add(temp);
-					}
+				if (arr != null) {
+					Collections.addAll(stack, arr);
 				}
 			} else {
 				try {
@@ -111,9 +107,8 @@ public class FileService {
 			log.warn("Couldn't create dir {}", destinationDir.getAbsolutePath());
 			return;
 		}
-		Stack<File> queue = new Stack<>();
-		queue.addAll(parsePaths(sourceDir, files));
-		Stack<File> stack = new Stack<>();
+		Deque<File> queue = new LinkedList<>(parsePaths(sourceDir, files));
+		Deque<File> stack = new LinkedList<>();
 		while (!queue.isEmpty()) {
 			File file = queue.pop();
 			if (!file.exists()) {
@@ -121,57 +116,46 @@ public class FileService {
 			}
 			File target = new File(destinationDir.getAbsolutePath() + File.separator + file.getAbsolutePath().substring(sourceDir.getAbsolutePath().length() + 1));
 			if (file.isDirectory()) {
-				target.mkdirs();
+				mkdirs(target);
 				File[] arr = file.listFiles();
-				if (arr != null && arr.length > 0) {
-					for (File temp : arr) {
-						queue.add(temp);
-					}
+				if (arr != null) {
+					Collections.addAll(queue, arr);
 				}
 				stack.push(file);
 			} else {
-				file.renameTo(target);
+				renameTo(file, target);
 			}
 		}
 		while (!stack.isEmpty()) {
-			stack.pop().delete();
+			deleteSilently(stack.pop());
 		}
 	}
 
-	public void delete(File sourceDir, List<String> files) {
-		if (!sourceDir.exists()) {
+	public void delete(File sourceDir, List<String> children) {
+		parsePaths(sourceDir, children).forEach(this::delete);
+	}
+
+	public void delete(File dir) {
+		if (!dir.exists()) {
 			return;
 		}
-		Stack<File> stack = new Stack<>();
-		stack.addAll(parsePaths(sourceDir, files));
-		while (!stack.isEmpty()) {
-			File file = stack.pop();
-			if (!file.exists()) {
-				continue;
-			}
-			if (file.isDirectory()) {
-				File[] arr = file.listFiles();
-				if (arr == null || arr.length == 0) {
-					file.delete();
-				} else {
-					stack.push(file);
-					for (File temp : arr) {
-						stack.push(temp);
-					}
+		if (dir.isDirectory()) {
+			File[] list = dir.listFiles();
+			if (list != null) {
+				for (File file : list) {
+					delete(file);
 				}
-			} else {
-				file.delete();
 			}
 		}
+		deleteSilently(dir);
 	}
 
 	public String size(File sourceDir, List<String> files) {
 		if (!sourceDir.exists()) {
 			return "0 B";
 		}
-		Stack<File> stack = new Stack<>();
 		long length = 0;
-		stack.addAll(parsePaths(sourceDir, files));
+		Deque<File> stack = new LinkedList<>(parsePaths(sourceDir, files));
 		while (!stack.isEmpty()) {
 			File file = stack.pop();
 			if (!file.exists()) {
@@ -179,7 +163,7 @@ public class FileService {
 			}
 			if (file.isDirectory()) {
 				File[] arr = file.listFiles();
-				if (arr != null && arr.length > 0) {
+				if (arr != null) {
 					for (File temp : arr) {
 						stack.push(temp);
 					}
@@ -188,10 +172,10 @@ public class FileService {
 				length += file.length();
 			}
 		}
-		return bytesToString(length);
+		return getSizeInString(length);
 	}
 
-	public String bytesToString(long size) {
+	public String getSizeInString(long size) {
 		if (size > 1000000000) {
 			return decimalFormat.format(size / 1000000000.0) + " GB";
 		}
@@ -204,17 +188,18 @@ public class FileService {
 		return size + " B";
 	}
 
-	public void rename(File file, String oldName, String newName) {
-		file.toPath().resolve(oldName).toFile().renameTo(file.toPath().resolve(newName).toFile());
+	public void rename(File dir, String oldName, String newName) {
+		renameTo(dir.toPath().resolve(oldName).toFile(), dir.toPath().resolve(newName).toFile());
 	}
 
 	public void createDir(File file, String newName) {
-		file.toPath().resolve(newName).toFile().mkdir();
+		mkdirs(file.toPath().resolve(newName).toFile());
 	}
 
-	public void remoteUpload(File sourceDir, String url, String newName) {
+	public void remoteUpload(File sourceDir, String url, String newName) throws URISyntaxException {
+		URI uri = new URI(url);
 		(new Thread(() -> {
-			try (BufferedInputStream in = new BufferedInputStream(new URL(url).openStream());
+			try (BufferedInputStream in = new BufferedInputStream(uri.toURL().openStream());
 				 FileOutputStream fileOutputStream = new FileOutputStream(sourceDir.toPath().resolve(newName).toString())) {
 				byte[] dataBuffer = new byte[1024];
 				int bytesRead;
@@ -226,4 +211,90 @@ public class FileService {
 			}
 		})).start();
 	}
+
+	public void createZip(String parentDirPath, List<String> children, ZipOutputStream zos) throws IOException {
+		for (String child : children) {
+			Path path = Paths.get(parentDirPath, child);
+			if (!Files.exists(path)) {
+				continue;
+			}
+
+			if (Files.isDirectory(path)) {
+				addDirectoryToZip(parentDirPath, path.toString(), zos);
+			} else {
+				try (FileInputStream fis = new FileInputStream(path.toFile())) {
+
+					ZipEntry zipEntry = new ZipEntry(child);
+					zos.putNextEntry(zipEntry);
+
+					byte[] buffer = new byte[1024];
+					int length;
+					while ((length = fis.read(buffer)) > 0) {
+						zos.write(buffer, 0, length);
+					}
+				}
+				zos.closeEntry();
+			}
+		}
+	}
+
+	private void addDirectoryToZip(String rootDir, String currentDir, ZipOutputStream zos) throws IOException {
+		File dir = new File(currentDir);
+		File[] files = dir.listFiles();
+		if (files == null) {
+			return;
+		}
+		for (File file : files) {
+			if (file.isDirectory()) {
+				addDirectoryToZip(rootDir, file.getAbsolutePath(), zos);
+			} else {
+				try (FileInputStream fis = new FileInputStream(file)) {
+					String entryName = file.getAbsolutePath().replace(rootDir, "");
+
+					ZipEntry zipEntry = new ZipEntry(entryName);
+					zos.putNextEntry(zipEntry);
+
+					byte[] buffer = new byte[1024];
+					int length;
+					while ((length = fis.read(buffer)) > 0) {
+						zos.write(buffer, 0, length);
+					}
+				}
+				zos.closeEntry();
+			}
+		}
+	}
+
+	public void saveTextFile(Path path, String content) throws FileNotFoundException {
+		mkdirs(path.toFile().getParentFile());
+		try (PrintWriter out = new PrintWriter(path.toFile())) {
+			out.print(content);
+			out.flush();
+		}
+	}
+
+	public void mkdirs(File dir) {
+		if (!dir.exists() && !dir.mkdirs()) {
+			log.error("Couldn't create dir {}", dir.getAbsolutePath());
+		}
+	}
+
+	public void deleteSilently(File file) {
+		if (!file.exists()) {
+			return;
+		}
+		try {
+			Files.delete(file.toPath());
+		} catch (IOException e) {
+			log.error("Couldn't delete file {}", file.getAbsolutePath(), e);
+		}
+	}
+
+	public void renameTo(File src, File target) {
+		if (!src.renameTo(target)) {
+			log.error("Couldn't rename src {} To target {}", src.getAbsolutePath(), target.getAbsolutePath());
+		}
+	}
+
+
 }

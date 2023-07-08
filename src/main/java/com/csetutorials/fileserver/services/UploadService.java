@@ -7,8 +7,8 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 
@@ -18,40 +18,28 @@ public class UploadService {
 	@Autowired
 	FileService fileService;
 
-	public void cancelUpload() {
-
-	}
-
-	public void upload(MultipartFile file, String fileUniqueId, int chunkNumber, int totalNumChunks, String parentDir)
-			throws IOException {
+	public void upload(MultipartFile file, String fileUniqueId, int chunkNumber, int totalChunks, String parentDir,
+					   String actualFileName) throws IOException {
 		String workspaceDir = fileService.getBaseDir() + File.separator
 				+ ".cache" + File.separator + "vuedisk" + File.separator + fileUniqueId;
 		File workspaceDirFile = new File(workspaceDir);
 		String tempTargetFilePath = workspaceDir + File.separator + fileUniqueId;
 		String lockPath = workspaceDir + File.separator + "lock" + File.separator;
 		String serialNumFilePath = workspaceDir + File.separator + "serialNo.txt";
-		if (!workspaceDirFile.exists()) {
-			workspaceDirFile.mkdirs();
-		}
+		fileService.mkdirs(workspaceDirFile);
 		// Moving the uploaded chunk file to our cache
-		try {
-			File temp123 = new File(tempTargetFilePath + chunkNumber);
-			temp123.getParentFile().mkdirs();
-			Files.copy(file.getInputStream(), temp123.toPath(), StandardCopyOption.REPLACE_EXISTING);
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		}
+		File temp123 = new File(tempTargetFilePath + chunkNumber);
+		fileService.mkdirs(temp123.getParentFile());
+		Files.copy(file.getInputStream(), temp123.toPath(), StandardCopyOption.REPLACE_EXISTING);
 		// Creating lock path
 		File lockFile = new File(lockPath);
-		if (!lockFile.exists()) {
-			lockFile.mkdirs();
-		}
+		fileService.mkdirs(lockFile);
 		// Acquiring lock
 		while (!acquireLock(lockPath)) {
 			try {
 				Thread.sleep(50);
 			} catch (InterruptedException e) {
-				throw new RuntimeException(e);
+				Thread.currentThread().interrupt();
 			}
 		}
 
@@ -59,43 +47,37 @@ public class UploadService {
 		int serialNumber = getSerialNumber(serialNumFilePath);
 		File destFile = new File(tempTargetFilePath + 0);
 		int i = serialNumber + 1;
-		for (; i <= totalNumChunks; i++) {
+		for (; i <= totalChunks; i++) {
 			File srcFile = new File(tempTargetFilePath + i);
 			if (!srcFile.exists()) {
 				break;
 			}
 			if (!destFile.exists()) {
-				srcFile.renameTo(destFile);
+				fileService.renameTo(srcFile, destFile);
 			} else {
 				byte[] buff = Files.readAllBytes(srcFile.toPath());
 				Files.write(destFile.toPath(), buff, StandardOpenOption.APPEND);
-				srcFile.delete();
+				fileService.deleteSilently(srcFile);
 			}
 		}
 		setSerialNumber(serialNumFilePath, i - 1);
 		int updatedSerialNumber = i - 1;
 
-		if (updatedSerialNumber == totalNumChunks) {
+		if (updatedSerialNumber == totalChunks) {
 			File parentFile = fileService.parsePath(parentDir);
-			parentFile.mkdirs();
-			String originalFileName = file.getOriginalFilename();
-			destFile.renameTo(parentFile.toPath().resolve(originalFileName).toFile());
-			removeDir(workspaceDirFile);
+			fileService.mkdirs(parentFile);
+			fileService.renameTo(destFile, parentFile.toPath().resolve(actualFileName).toFile());
+			fileService.delete(workspaceDirFile);
 		}
 		releaseLock(lockPath);
 	}
 
 	private void releaseLock(String lockPath) {
-		removeDir(new File(lockPath));
+		fileService.delete(new File(lockPath));
 	}
 
 	private void setSerialNumber(String serialNumberFilePath, int serialNumber) throws FileNotFoundException {
-		File file = new File(serialNumberFilePath);
-		file.getParentFile().mkdirs();
-		PrintWriter out = new PrintWriter(file);
-		out.print(serialNumber);
-		out.flush();
-		out.close();
+		fileService.saveTextFile(Paths.get(serialNumberFilePath), String.valueOf(serialNumber));
 	}
 
 	private int getSerialNumber(String serialNumberFilePath) throws IOException {
@@ -107,23 +89,11 @@ public class UploadService {
 		}
 	}
 
-	private void removeDir(File dir) {
-		if (dir.isDirectory()) {
-			File[] list = dir.listFiles();
-			if (list != null && list.length > 0) {
-				for (File file : list) {
-					removeDir(file);
-				}
-			}
-		}
-		dir.delete();
-	}
-
 	private boolean acquireLock(String lockPath) {
 		File lockDir = new File(lockPath);
 		if (isDirectoryEmpty(lockDir)) {
 			long time = System.currentTimeMillis();
-			(new File(lockPath + File.separator + time)).mkdirs();
+			fileService.mkdirs(new File(lockPath + File.separator + time));
 			return isLowestTimestamp(lockDir, time);
 		}
 		return false;
@@ -131,7 +101,7 @@ public class UploadService {
 
 	private boolean isLowestTimestamp(File dir, long millis) {
 		File[] list = dir.listFiles();
-		if (list == null || list.length == 0) {
+		if (list == null) {
 			return true;
 		}
 		for (File file : list) {
@@ -147,9 +117,6 @@ public class UploadService {
 			return true;
 		}
 		File[] list = lockDir.listFiles();
-		if (list == null || list.length == 0) {
-			return true;
-		}
-		return false;
+		return list == null || list.length == 0;
 	}
 }

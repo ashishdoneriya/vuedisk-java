@@ -5,27 +5,32 @@ import com.csetutorials.fileserver.beans.FormParams;
 import com.csetutorials.fileserver.services.FileService;
 import com.csetutorials.fileserver.services.ThumbnailService;
 import com.csetutorials.fileserver.services.UploadService;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletResponse;
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.net.MalformedURLException;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
-import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 @RestController
 @RequestMapping("apis")
+@Log4j2
 public class FileController {
 
 	@Autowired
@@ -43,23 +48,20 @@ public class FileController {
 	}
 
 	@PostMapping("copy")
-	public String copy(@RequestBody FormParams params) {
+	public void copy(@RequestBody FormParams params) {
 		fileService.copy(fileService.parsePath(params.getSourceDir()),
 				fileService.parsePath(params.getDestinationDir()), params.getFiles());
-		return "success";
 	}
 
 	@PostMapping("cut")
-	public String cut(@RequestBody FormParams params) {
+	public void cut(@RequestBody FormParams params) {
 		fileService.cut(fileService.parsePath(params.getSourceDir()),
 				fileService.parsePath(params.getDestinationDir()), params.getFiles());
-		return "success";
 	}
 
 	@PostMapping("delete")
-	public String delete(@RequestBody FormParams params) {
+	public void delete(@RequestBody FormParams params) {
 		fileService.delete(fileService.parsePath(params.getSourceDir()), params.getFiles());
-		return "success";
 	}
 
 	@PostMapping("size")
@@ -68,90 +70,78 @@ public class FileController {
 	}
 
 	@PostMapping("rename")
-	public String rename(@RequestBody FormParams params) {
+	public void rename(@RequestBody FormParams params) {
 		fileService.rename(fileService.parsePath(params.getSourceDir()), params.getOldName(), params.getNewName());
-		return "success";
 	}
 
 	@PostMapping("create-dir")
-	public String createDirectory(@RequestBody FormParams params) {
+	public void createDirectory(@RequestBody FormParams params) {
 		fileService.createDir(fileService.parsePath(params.getSourceDir()), params.getNewName());
-		return "success";
 	}
 
 	@PostMapping("remote-upload")
-	public String remoteUpload(@RequestBody FormParams params) {
-		fileService.remoteUpload(fileService.parsePath(params.getSourceDir()), params.getUrl(), params.getNewName());
-		return "success";
-	}
-
-	@GetMapping("/download")
-	public ResponseEntity<Resource> download(@RequestParam("path") String path) {
+	public ResponseEntity<Object> remoteUpload(@RequestBody FormParams params) {
 		try {
-			File file = fileService.parsePath(path);
-			if (!file.exists()) {
-				return ResponseEntity.notFound().build();
-			}
-			Resource resource = new UrlResource(file.toPath().toUri());
-			HttpHeaders headers = new HttpHeaders();
-			headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-			headers.setContentDispositionFormData("attachment", file.getName());
-			headers.setContentLength(file.length());
-			return ResponseEntity.ok().headers(headers).body(resource);
-		} catch (Exception e) {
-			return ResponseEntity.notFound().build();
+			fileService.remoteUpload(fileService.parsePath(params.getSourceDir()), params.getUrl(), params.getNewName());
+			return ResponseEntity.ok().build();
+		} catch (URISyntaxException e) {
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
 		}
 	}
 
-	@GetMapping("/music")
-	public ResponseEntity<Resource> music(@RequestParam("path") String path) {
-		try {
-			File file = fileService.parsePath(path);
-			if (!file.exists()) {
-				return ResponseEntity.notFound().build();
-			}
-			Resource resource = new UrlResource(file.toPath().toUri());
-			HttpHeaders headers = new HttpHeaders();
-			headers.setContentType(MediaType.parseMediaType("audio/wav"));
-			headers.setContentDispositionFormData("attachment", file.getName());
-			headers.setContentLength(file.length());
-			return ResponseEntity.ok().headers(headers).body(resource);
-		} catch (Exception e) {
+	@GetMapping("download")
+	public ResponseEntity<Resource> download(@RequestParam("path") String path) throws MalformedURLException {
+		File file = fileService.parsePath(path);
+		if (!file.exists()) {
 			return ResponseEntity.notFound().build();
 		}
+		Resource resource = new UrlResource(file.toPath().toUri());
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+		headers.setContentDispositionFormData("attachment", file.getName());
+		headers.setContentLength(file.length());
+		return ResponseEntity.ok().headers(headers).body(resource);
+	}
+
+	@GetMapping("music")
+	public ResponseEntity<Resource> music(@RequestParam("path") String path) throws MalformedURLException {
+		File file = fileService.parsePath(path);
+		if (!file.exists()) {
+			return ResponseEntity.notFound().build();
+		}
+		Resource resource = new UrlResource(file.toPath().toUri());
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(MediaType.parseMediaType("audio/wav"));
+		headers.setContentDispositionFormData("attachment", file.getName());
+		headers.setContentLength(file.length());
+		return ResponseEntity.ok().headers(headers).body(resource);
 	}
 
 	@GetMapping("thumbnail")
 	public ResponseEntity<Resource> thumbnail(@RequestParam("parent") String sourceDirPath,
 											  @RequestParam("type") String thumbnailSize,
-											  @RequestParam("name") String fileName) {
-		try {
-			File file = fileService.parsePath(sourceDirPath + File.separator + fileName);
-			if (!file.exists()) {
-				return ResponseEntity.notFound().build();
-			}
-			file = thumbnailService.getThumbnail(file, thumbnailSize);
-			Resource resource = new FileSystemResource(file);
-			HttpHeaders headers = new HttpHeaders();
-			headers.setContentType(MediaType.parseMediaType("image/jpeg"));
-			headers.setContentDispositionFormData("attachment", file.getName());
-			headers.setContentLength(file.length());
-			return ResponseEntity.ok().headers(headers).body(resource);
-		} catch (Exception e) {
-			e.printStackTrace();
+											  @RequestParam("name") String fileName) throws IOException {
+		File file = fileService.parsePath(sourceDirPath + File.separator + fileName);
+		if (!file.exists()) {
 			return ResponseEntity.notFound().build();
 		}
+		file = thumbnailService.getThumbnail(file, thumbnailSize);
+		Resource resource = new FileSystemResource(file);
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(MediaType.parseMediaType("image/jpeg"));
+		headers.setContentDispositionFormData("attachment", file.getName());
+		headers.setContentLength(file.length());
+		return ResponseEntity.ok().headers(headers).body(resource);
 	}
 
 	@PostMapping("upload")
-	public String upload(@RequestPart("upload") MultipartFile file,
-						 @RequestParam("fileUniqueId") String fileUniqueId,
-						 @RequestParam("num") int chunkNumber,
-						 @RequestParam("num_chunks") int totalNumChunks,
-						 @RequestParam("parentDir") String parentDir) throws IOException {
-
-		uploadService.upload(file, fileUniqueId, chunkNumber, totalNumChunks, parentDir);
-		return "success";
+	public void upload(@RequestPart("upload") MultipartFile file,
+					   @RequestParam("fileUniqueId") String fileUniqueId,
+					   @RequestParam("chunkNumber") int chunkNumber,
+					   @RequestParam("totalChunks") int totalChunks,
+					   @RequestParam("parentDir") String parentDir,
+					   @RequestParam("actualFileName") String actualFileName) throws IOException {
+		uploadService.upload(file, fileUniqueId, chunkNumber, totalChunks, parentDir, actualFileName);
 	}
 
 	@PostMapping("read-text-file")
@@ -160,90 +150,23 @@ public class FileController {
 	}
 
 	@PostMapping("save-text-file")
-	public String saveTextFile(@RequestBody FormParams params) throws IOException {
+	public String saveTextFile(@RequestBody FormParams params) throws Exception {
 		Path path = fileService.parsePath(params.getSourceDir()).toPath().resolve(params.getName());
 		String content = params.getContent();
-		try (PrintWriter out = new PrintWriter(path.toFile())) {
-			out.print(content);
-			out.flush();
-		}
-		return fileService.bytesToString(content.getBytes().length);
+		fileService.saveTextFile(path, content);
+		return fileService.getSizeInString(content.getBytes().length);
 	}
 
-	@PostMapping("/download-zip")
-	public void createAndDownloadZip(@RequestBody FormParams params, HttpServletResponse response) {
-
-		String parentDir =  fileService.parsePath(params.getSourceDir()).getAbsolutePath();
-
-		try {
-			// Set the response headers
-			response.setContentType("application/zip");
-			response.setHeader("Content-Disposition", "attachment; filename=\"output.zip\"");
-
-			// Write the zip file content to the response output stream
-			OutputStream outputStream = response.getOutputStream();
-			ZipOutputStream zos = new ZipOutputStream(outputStream);
-			addToZip(parentDir, params.getFiles(), zos);
-			zos.close();
-			outputStream.flush();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+	@PostMapping("download-zip")
+	public void createAndDownloadZip(@RequestBody FormParams params, HttpServletResponse response) throws IOException {
+		String parentDir = fileService.parsePath(params.getSourceDir()).getAbsolutePath();
+		response.setContentType("application/zip");
+		response.setHeader("Content-Disposition", "attachment; filename=\"output.zip\"");
+		OutputStream outputStream = response.getOutputStream();
+		ZipOutputStream zos = new ZipOutputStream(outputStream);
+		fileService.createZip(parentDir, params.getFiles(), zos);
+		zos.close();
+		outputStream.flush();
 	}
-
-	private static void addToZip(String parentDir, List<String> fileAndDirNames, ZipOutputStream zos) throws IOException {
-		for (String name : fileAndDirNames) {
-			Path path = Paths.get(parentDir, name);
-			if (!Files.exists(path)) {
-				System.out.println("File or directory not found: " + path);
-				continue;
-			}
-
-			if (Files.isDirectory(path)) {
-				addDirectoryToZip(parentDir, path.toString(), zos);
-			} else {
-				FileInputStream fis = new FileInputStream(path.toFile());
-
-				ZipEntry zipEntry = new ZipEntry(name);
-				zos.putNextEntry(zipEntry);
-
-				byte[] buffer = new byte[1024];
-				int length;
-				while ((length = fis.read(buffer)) > 0) {
-					zos.write(buffer, 0, length);
-				}
-
-				fis.close();
-				zos.closeEntry();
-			}
-		}
-	}
-
-	private static void addDirectoryToZip(String rootDir, String currentDir, ZipOutputStream zos) throws IOException {
-		File dir = new File(currentDir);
-		File[] files = dir.listFiles();
-
-		for (File file : files) {
-			if (file.isDirectory()) {
-				addDirectoryToZip(rootDir, file.getAbsolutePath(), zos);
-			} else {
-				FileInputStream fis = new FileInputStream(file);
-				String entryName = file.getAbsolutePath().replace(rootDir, "");
-
-				ZipEntry zipEntry = new ZipEntry(entryName);
-				zos.putNextEntry(zipEntry);
-
-				byte[] buffer = new byte[1024];
-				int length;
-				while ((length = fis.read(buffer)) > 0) {
-					zos.write(buffer, 0, length);
-				}
-
-				fis.close();
-				zos.closeEntry();
-			}
-		}
-	}
-
 
 }

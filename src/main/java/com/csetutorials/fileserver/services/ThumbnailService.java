@@ -10,9 +10,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.Optional;
 
 @Service
 @Log4j2
@@ -34,7 +34,7 @@ public class ThumbnailService {
 		if (target.exists()) {
 			return target;
 		}
-		target.getParentFile().mkdirs();
+		fileService.mkdirs(target.getParentFile());
 		try {
 			ImmutableImage image = ImmutableImage.loader().fromFile(file);
 			if (image.height <= height) {
@@ -46,12 +46,15 @@ public class ThumbnailService {
 			} else if (file.getName().endsWith(".pcx") || file.getName().endsWith(".PCX")) {
 				image.scaleToHeight(height).output(new PcxWriter(), target);
 			}
-			Format format = FormatDetector.detect(new FileInputStream(file)).get();
+			Optional<Format> optional = FormatDetector.detect(Files.newInputStream(file.toPath()));
 
-			if (format == null) {
+			if (!optional.isPresent()) {
 				Files.createSymbolicLink(target.toPath(), file.toPath());
 				return target;
 			}
+
+			Format format = optional.get();
+
 			switch (format) {
 				case GIF:
 					image.scaleToHeight(height).output(GifWriter.Progressive, target);
@@ -67,7 +70,7 @@ public class ThumbnailService {
 					break;
 			}
 			return target;
-		} catch (Throwable e) {
+		} catch (Exception e) {
 			log.error("Problem while creating thumbnail of image {}", file.getAbsolutePath(), e);
 			Files.createSymbolicLink(target.toPath(), file.toPath());
 			return target;
