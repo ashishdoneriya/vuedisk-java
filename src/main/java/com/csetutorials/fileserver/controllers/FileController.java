@@ -76,13 +76,13 @@ public class FileController {
 
 	@PostMapping("create-dir")
 	public void createDirectory(@RequestBody FormParams params) {
-		fileService.createDir(fileService.parsePath(params.getSourceDir()), params.getNewName());
+		fileService.createDir(fileService.parsePath(params.getSourceDir()), params.getName());
 	}
 
 	@PostMapping("remote-upload")
 	public ResponseEntity<Object> remoteUpload(@RequestBody FormParams params) {
 		try {
-			fileService.remoteUpload(fileService.parsePath(params.getSourceDir()), params.getUrl(), params.getNewName());
+			fileService.remoteUpload(fileService.parsePath(params.getSourceDir()), params.getUrl(), params.getName());
 			return ResponseEntity.ok().build();
 		} catch (URISyntaxException e) {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());

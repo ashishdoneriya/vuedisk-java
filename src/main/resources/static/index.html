@@ -758,7 +758,7 @@
 					axios.post('/apis/remote-upload', {
 						'sourceDir': this.currentDir,
 						'url': this.remoteUrl,
-						'newName': this.remoteUrlName
+						'name': this.remoteUrlName
 					}).then((response) => {
 						this.$message({
 							type: 'success',
@@ -784,7 +784,7 @@
 					}).then(value => {
 						if (value) {
 							axios.post('/apis/create-dir', {
-								'newName': value.value,
+								'name': value.value,
 								'sourceDir': this.currentDir
 							})
 								.then((response) => {
