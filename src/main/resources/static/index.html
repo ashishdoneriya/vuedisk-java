@@ -20,7 +20,7 @@
 	<script src="js/cookies.min.js"></script>
 	<script src="js/vue-lazyload.js"></script>
 	<script src="js/v-img.min.js"></script>
-	<script src="/js/httpVueLoader.js"></script>
+	<script src="js/httpVueLoader.js"></script>
 </head>
 
 <body>
@@ -295,7 +295,8 @@
 		<!-- AUDIO PLAYER DIALOGUE end-->
 
 		<!-- TEXT EDITOR DIALOGUE start -->
-		<el-dialog :title="textEditorCurrentOpenedFileName" :visible.sync="textEditorDialogueVisibility" style="margin-top:-5vh">
+		<el-dialog :title="textEditorCurrentOpenedFileName" :visible.sync="textEditorDialogueVisibility"
+			style="margin-top:-5vh">
 			<el-input type="textarea" :rows="15" placeholder="Please input" v-model="textEditorDialogueContent"
 				style="font-size:16px">
 			</el-input>
@@ -571,21 +572,7 @@
 							}
 						}).catch(() => { });
 					} else if (command == 'size') {
-						axios.post(`/apis/size`, {
-							'sourceDir': this.currentDir,
-							'files': [name]
-						}).then((response) => {
-							this.$message({
-								message: 'Size : ' + response.data,
-								center: true
-							});
-						}).catch(() => {
-							this.$message({
-								type: 'error',
-								message: 'Unable to fetch file(s) size',
-								center: true
-							});
-						});
+						this.fetchSizeSse([name]);
 					} else if (command == 'delete') {
 						this.$confirm('Are you sure want to permanently delete ?', {
 							confirmButtonText: 'Yes',
@@ -686,21 +673,88 @@
 				},
 
 				fetchSize() {
-					axios.post(`/apis/size`, {
-						'sourceDir': this.currentDir,
-						'files': this.multipleSelection
-					}).then((response) => {
-						this.$message({
-							message: 'Size : ' + response.data,
-							center: true
+					this.fetchSizeSse(this.multipleSelection);
+				},
+
+				async fetchSizeSse(files) {
+
+					try {
+						const controller = new AbortController();
+						const signal = controller.signal;
+
+						const response = await fetch('/apis/size-sse', {
+							method: "POST",
+							cache: "no-cache",
+							keepalive: true,
+							headers: {
+								"Content-Type": "application/json",
+								"Accept": "text/event-stream",
+							},
+							body: JSON.stringify({
+								'sourceDir': this.currentDir,
+								'files': files
+							}),
+							signal: signal
 						});
-					}).catch(() => {
-						this.$message({
-							type: 'error',
-							message: 'Unable to fetch file(s) size',
-							center: true
-						});
-					});
+
+						const reader = response.body.getReader();
+
+						let messageBox;
+						while (true) {
+							const { value, done } = await reader.read();
+
+							let message = new TextDecoder().decode(value);
+
+							if (message && message.startsWith('data:')) {
+								message = message.substring(5).trim();
+							}
+							if (message) {
+								message = message.trim();
+							}
+							if (message && message.indexOf('data:') != -1) {
+								message = message.substring(0, message.indexOf('data:'));
+							}
+							if (message) {
+								message = message.trim();
+							}
+							if (done) {
+								if (!messageBox && message && message.length > 0) {
+									messageBox = this.$message({
+										type: 'info',
+										message: message,
+										center: true,
+										duration: 0,
+										onClose: () => {
+											controller.abort();
+										}
+									});
+								}
+								if (messageBox) {
+									setTimeout(() => messageBox.close(), 3000);
+								}
+								return;
+							}
+							if (!message || message.length == 0) {
+								continue;
+							}
+							if (!messageBox) {
+								messageBox = this.$message({
+									type: 'info',
+									message: message,
+									center: true,
+									showClose: true,
+									duration: 0,
+									onClose: () => {
+										controller.abort();
+									}
+								});
+							} else {
+								messageBox.message = message;
+							}
+						}
+					} catch (error) {
+						
+					}
 				},
 
 				paste() {

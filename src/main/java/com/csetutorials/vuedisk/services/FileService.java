@@ -1,6 +1,7 @@
 package com.csetutorials.vuedisk.services;
 
 import com.csetutorials.vuedisk.beans.FilesListObj;
+import com.csetutorials.vuedisk.beans.SizeSse;
 import lombok.extern.log4j.Log4j2;
 import org.apache.tika.Tika;
 import org.apache.tika.mime.MediaType;
@@ -100,9 +101,17 @@ public class FileService {
 				obj.setAudio(audioExtensions.contains(extension));
 				obj.setVideo(videoExtensions.contains(extension));
 			}
-
 			list.add(obj);
 		}
+		list.sort((obj1, obj2) -> {
+			if ((obj1.isDir() && obj2.isDir()) || (!obj1.isDir() && !obj2.isDir())) {
+				return obj1.getName().compareTo(obj2.getName());
+			} else if (obj1.isDir()) {
+				return -1;
+			} else {
+				return 1;
+			}
+		});
 		return list;
 	}
 
@@ -182,17 +191,21 @@ public class FileService {
 		deleteSilently(dir);
 	}
 
-	public String size(File sourceDir, List<String> files) {
+	public void size(SizeSse sizeSse, File sourceDir, List<String> files) {
 		if (!sourceDir.exists()) {
-			return "0 B";
+			sizeSse.setFinished(true);
+			return;
 		}
-		long length = 0;
 		Deque<File> stack = new LinkedList<>(parsePaths(sourceDir, files));
 		while (!stack.isEmpty()) {
+			if (sizeSse.isStopped()) {
+				return;
+			}
 			File file = stack.pop();
 			if (!file.exists()) {
 				continue;
 			}
+			sizeSse.setItems(sizeSse.getItems() + 1);
 			if (file.isDirectory()) {
 				File[] arr = file.listFiles();
 				if (arr != null) {
@@ -201,10 +214,10 @@ public class FileService {
 					}
 				}
 			} else {
-				length += file.length();
+				sizeSse.setSizeInBytes(sizeSse.getSizeInBytes() + file.length());
 			}
 		}
-		return getSizeInString(length);
+		sizeSse.setFinished(true);
 	}
 
 	public String getSizeInString(long size) {

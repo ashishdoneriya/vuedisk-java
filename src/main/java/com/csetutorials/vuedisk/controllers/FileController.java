@@ -2,6 +2,7 @@ package com.csetutorials.vuedisk.controllers;
 
 import com.csetutorials.vuedisk.beans.FilesListObj;
 import com.csetutorials.vuedisk.beans.FormParams;
+import com.csetutorials.vuedisk.beans.SizeSse;
 import com.csetutorials.vuedisk.services.FileService;
 import com.csetutorials.vuedisk.services.ThumbnailService;
 import com.csetutorials.vuedisk.services.UploadService;
@@ -16,6 +17,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import javax.servlet.http.HttpServletResponse;
 import java.io.File;
@@ -26,6 +28,8 @@ import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.zip.ZipOutputStream;
 
 @RestController
@@ -62,11 +66,6 @@ public class FileController {
 	@PostMapping("delete")
 	public void delete(@RequestBody FormParams params) {
 		fileService.delete(fileService.parsePath(params.getSourceDir()), params.getFiles());
-	}
-
-	@PostMapping("size")
-	public String size(@RequestBody FormParams params) {
-		return fileService.size(fileService.parsePath(params.getSourceDir()), params.getFiles());
 	}
 
 	@PostMapping("rename")
@@ -179,6 +178,37 @@ public class FileController {
 	@PostMapping("is-text-file")
 	public boolean isTextFile(@RequestBody FormParams params) throws IOException {
 		return fileService.isTextFile(fileService.parsePath(params.getSourceDir(), params.getName()));
+	}
+
+	@PostMapping("size-sse")
+	public SseEmitter size(@RequestBody FormParams params) {
+		SseEmitter emitter = new SseEmitter();
+		SizeSse sizeSse = new SizeSse();
+		(new Thread(() -> fileService.size(sizeSse, fileService.parsePath(params.getSourceDir()), params.getFiles()))).start();
+		ExecutorService sseMvcExecutor = Executors.newSingleThreadExecutor();
+		emitter.onCompletion(() -> sizeSse.setStopped(true));
+		emitter.onError((obj) -> sizeSse.setStopped(true));
+		emitter.onTimeout(() -> sizeSse.setStopped(true));
+		sseMvcExecutor.execute(() -> {
+			try {
+				while (!sizeSse.isFinished() && !sizeSse.isStopped()) {
+					Thread.sleep(1000);
+					SseEmitter.SseEventBuilder event = SseEmitter.event()
+							.data("Size : " + fileService.getSizeInString(sizeSse.getSizeInBytes()) + ", Items : " + sizeSse.getItems());
+					emitter.send(event);
+				}
+				if (!sizeSse.isStopped()) {
+					SseEmitter.SseEventBuilder event = SseEmitter.event()
+							.data("Size : " + fileService.getSizeInString(sizeSse.getSizeInBytes()) + ", Items : " + sizeSse.getItems());
+					emitter.send(event);
+					emitter.complete();
+				}
+			} catch (Exception e) {
+				sizeSse.setStopped(true);
+				emitter.complete();
+			}
+		});
+		return emitter;
 	}
 
 }

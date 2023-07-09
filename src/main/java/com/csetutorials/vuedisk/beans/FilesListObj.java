@@ -15,6 +15,9 @@ public class FilesListObj {
 
 	private String size;
 
+	@JsonProperty("isHidden")
+	private boolean isHidden;
+
 	@JsonProperty("isText")
 	private boolean isText;
 

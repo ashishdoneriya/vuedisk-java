@@ -213,7 +213,6 @@ body {
 	.el-card__header {
 		border-bottom:none;
 	}
-
 }
 
 .grid-container {
@@ -230,4 +229,8 @@ body {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.el-message.is-closable .el-message__content {
+    padding-right:25px;
 }
