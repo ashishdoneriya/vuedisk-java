@@ -726,12 +726,15 @@
 										duration: 0,
 										onClose: () => {
 											controller.abort();
-										}
+										},
+										customClass: 'custom-message-box',
 									});
 								}
+
 								if (messageBox) {
 									setTimeout(() => messageBox.close(), 3000);
 								}
+
 								return;
 							}
 							if (!message || message.length == 0) {
@@ -746,7 +749,8 @@
 									duration: 0,
 									onClose: () => {
 										controller.abort();
-									}
+									},
+									customClass: 'custom-message-box',
 								});
 							} else {
 								messageBox.message = message;

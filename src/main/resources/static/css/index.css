@@ -234,3 +234,8 @@ body {
 .el-message.is-closable .el-message__content {
     padding-right:25px;
 }
+
+.custom-message-box {
+  width: auto !important;
+  max-width: none !important;
+}
