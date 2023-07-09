@@ -9,10 +9,10 @@
 		<relativePath />
 	</parent>
 	<groupId>com.csetutorials</groupId>
-	<artifactId>fileserver</artifactId>
+	<artifactId>vuedisk</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>fileserver</name>
-	<description>File Server</description>
+	<description>VueDisk</description>
 	<properties>
 		<java.version>8</java.version>
 		<scrimage.version>4.0.37</scrimage.version>
@@ -21,6 +21,11 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.tika</groupId>
+			<artifactId>tika-core</artifactId>
+			<version>2.8.0</version>
 		</dependency>
 		<dependency>
 			<groupId>com.twelvemonkeys.imageio</groupId>

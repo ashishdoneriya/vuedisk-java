@@ -1,13 +1,13 @@
-package com.csetutorials.fileserver;
+package com.csetutorials.vuedisk;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class FileServerApplication {
+public class VueDiskApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(FileServerApplication.class, args);
+		SpringApplication.run(VueDiskApplication.class, args);
 	}
 
 }

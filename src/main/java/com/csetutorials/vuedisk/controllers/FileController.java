@@ -1,10 +1,10 @@
-package com.csetutorials.fileserver.controllers;
+package com.csetutorials.vuedisk.controllers;
 
-import com.csetutorials.fileserver.beans.FilesListObj;
-import com.csetutorials.fileserver.beans.FormParams;
-import com.csetutorials.fileserver.services.FileService;
-import com.csetutorials.fileserver.services.ThumbnailService;
-import com.csetutorials.fileserver.services.UploadService;
+import com.csetutorials.vuedisk.beans.FilesListObj;
+import com.csetutorials.vuedisk.beans.FormParams;
+import com.csetutorials.vuedisk.services.FileService;
+import com.csetutorials.vuedisk.services.ThumbnailService;
+import com.csetutorials.vuedisk.services.UploadService;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.FileSystemResource;
@@ -23,9 +23,9 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.zip.ZipOutputStream;
 
 @RestController
@@ -76,13 +76,13 @@ public class FileController {
 
 	@PostMapping("create-dir")
 	public void createDirectory(@RequestBody FormParams params) {
-		fileService.createDir(fileService.parsePath(params.getSourceDir()), params.getName());
+		fileService.mkdirs(fileService.parsePath(params.getSourceDir(), params.getName()));
 	}
 
 	@PostMapping("remote-upload")
 	public ResponseEntity<Object> remoteUpload(@RequestBody FormParams params) {
 		try {
-			fileService.remoteUpload(fileService.parsePath(params.getSourceDir()), params.getUrl(), params.getName());
+			fileService.remoteUpload(fileService.parsePath(params.getSourceDir(), params.getName()), params.getUrl());
 			return ResponseEntity.ok().build();
 		} catch (URISyntaxException e) {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
@@ -121,7 +121,7 @@ public class FileController {
 	public ResponseEntity<Resource> thumbnail(@RequestParam("parent") String sourceDirPath,
 											  @RequestParam("type") String thumbnailSize,
 											  @RequestParam("name") String fileName) throws IOException {
-		File file = fileService.parsePath(sourceDirPath + File.separator + fileName);
+		File file = fileService.parsePath(sourceDirPath, fileName);
 		if (!file.exists()) {
 			return ResponseEntity.notFound().build();
 		}
@@ -145,15 +145,22 @@ public class FileController {
 	}
 
 	@PostMapping("read-text-file")
-	public String readTextFile(@RequestBody FormParams params) throws IOException {
-		return new String(Files.readAllBytes(fileService.parsePath(params.getSourceDir()).toPath().resolve(params.getName())));
+	public Map<String, Object> readTextFile(@RequestBody FormParams params) {
+		Map<String, Object> map = new HashMap<>();
+		try {
+			map.put("content", fileService.readTextFile(fileService.parsePath(params.getSourceDir(), params.getName())));
+			map.put("fetched", true);
+		} catch (Exception e) {
+			map.put("fetched", false);
+		}
+		return map;
 	}
 
 	@PostMapping("save-text-file")
 	public String saveTextFile(@RequestBody FormParams params) throws Exception {
-		Path path = fileService.parsePath(params.getSourceDir()).toPath().resolve(params.getName());
+		File file = fileService.parsePath(params.getSourceDir(), params.getName());
 		String content = params.getContent();
-		fileService.saveTextFile(path, content);
+		fileService.saveTextFile(file, content);
 		return fileService.getSizeInString(content.getBytes().length);
 	}
 
@@ -167,6 +174,11 @@ public class FileController {
 		fileService.createZip(parentDir, params.getFiles(), zos);
 		zos.close();
 		outputStream.flush();
+	}
+
+	@PostMapping("is-text-file")
+	public boolean isTextFile(@RequestBody FormParams params) throws IOException {
+		return fileService.isTextFile(fileService.parsePath(params.getSourceDir(), params.getName()));
 	}
 
 }

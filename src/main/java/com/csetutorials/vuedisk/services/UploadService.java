@@ -1,4 +1,4 @@
-package com.csetutorials.fileserver.services;
+package com.csetutorials.vuedisk.services;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -8,7 +8,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 
@@ -25,7 +24,7 @@ public class UploadService {
 		File workspaceDirFile = new File(workspaceDir);
 		String tempTargetFilePath = workspaceDir + File.separator + fileUniqueId;
 		String lockPath = workspaceDir + File.separator + "lock" + File.separator;
-		String serialNumFilePath = workspaceDir + File.separator + "serialNo.txt";
+		File serialNumberFile = new File(workspaceDir + File.separator + "serialNo.txt");
 		fileService.mkdirs(workspaceDirFile);
 		// Moving the uploaded chunk file to our cache
 		File temp123 = new File(tempTargetFilePath + chunkNumber);
@@ -44,7 +43,7 @@ public class UploadService {
 		}
 
 		// Checking how many number of chunks have been merged serial wise
-		int serialNumber = getSerialNumber(serialNumFilePath);
+		int serialNumber = getSerialNumber(serialNumberFile);
 		File destFile = new File(tempTargetFilePath + 0);
 		int i = serialNumber + 1;
 		for (; i <= totalChunks; i++) {
@@ -60,7 +59,7 @@ public class UploadService {
 				fileService.deleteSilently(srcFile);
 			}
 		}
-		setSerialNumber(serialNumFilePath, i - 1);
+		setSerialNumber(serialNumberFile, i - 1);
 		int updatedSerialNumber = i - 1;
 
 		if (updatedSerialNumber == totalChunks) {
@@ -76,14 +75,13 @@ public class UploadService {
 		fileService.delete(new File(lockPath));
 	}
 
-	private void setSerialNumber(String serialNumberFilePath, int serialNumber) throws FileNotFoundException {
-		fileService.saveTextFile(Paths.get(serialNumberFilePath), String.valueOf(serialNumber));
+	private void setSerialNumber(File serialNumberFile, int serialNumber) throws FileNotFoundException {
+		fileService.saveTextFile(serialNumberFile, String.valueOf(serialNumber));
 	}
 
-	private int getSerialNumber(String serialNumberFilePath) throws IOException {
-		File file = new File(serialNumberFilePath);
-		if (file.exists()) {
-			return Integer.parseInt(new String(Files.readAllBytes(file.toPath())));
+	private int getSerialNumber(File serialNumberFile) throws IOException {
+		if (serialNumberFile.exists()) {
+			return Integer.parseInt(new String(Files.readAllBytes(serialNumberFile.toPath())));
 		} else {
 			return 0;
 		}

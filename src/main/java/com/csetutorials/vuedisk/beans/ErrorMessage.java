@@ -1,4 +1,4 @@
-package com.csetutorials.fileserver.beans;
+package com.csetutorials.vuedisk.beans;
 
 import lombok.Getter;
 import lombok.Setter;

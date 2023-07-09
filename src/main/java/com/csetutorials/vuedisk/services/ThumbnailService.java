@@ -1,4 +1,4 @@
-package com.csetutorials.fileserver.services;
+package com.csetutorials.vuedisk.services;
 
 import com.sksamuel.scrimage.ImmutableImage;
 import com.sksamuel.scrimage.format.Format;

@@ -1,6 +1,6 @@
-package com.csetutorials.fileserver.controllers;
+package com.csetutorials.vuedisk.controllers;
 
-import com.csetutorials.fileserver.beans.ErrorMessage;
+import com.csetutorials.vuedisk.beans.ErrorMessage;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

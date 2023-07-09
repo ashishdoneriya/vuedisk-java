@@ -1,7 +1,10 @@
-package com.csetutorials.fileserver.services;
+package com.csetutorials.vuedisk.services;
 
-import com.csetutorials.fileserver.beans.FilesListObj;
+import com.csetutorials.vuedisk.beans.FilesListObj;
 import lombok.extern.log4j.Log4j2;
+import org.apache.tika.Tika;
+import org.apache.tika.mime.MediaType;
+import org.apache.tika.mime.MediaTypeRegistry;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
@@ -24,9 +27,35 @@ public class FileService {
 	private String baseDir;
 
 	private final DecimalFormat decimalFormat = new DecimalFormat("#.##");
+	private static final Set<String> textFileExtensions = new HashSet<>(Arrays.asList(
+			"gnumakefile", "makefile", "ada", "adb", "ads", "ahk", "alg", "as", "ascx", "ashx", "asp", "aspx", "awk",
+			"bash", "bat", "c", "cbl", "cc", "cfg", "cfm", "cfml", "clj", "cmf", "cob", "coffee", "config", "cpp",
+			"cpy", "cs", "css", "cxx", "d", "dart", "e", "erl", "ex", "exs", "f", "f90", "f95", "fsx", "go",
+			"groovy", "h", "hpp", "hrl", "hs", "htm", "html", "inc", "j", "jade", "java", "jl", "js", "json", "kt",
+			"liquid", "lisp", "log", "lsp", "lua", "m", "makefile", "md", "ml", "mli", "mm", "nim", "pas", "php", "pl",
+			"pp", "prg", "pro", "properties", "ps1", "psm1", "pwn", "py", "r", "rb", "rkt", "rs", "sas", "sass",
+			"scala", "scm", "scss", "sh", "sql", "st", "swift", "tcl", "text", "toml", "ts", "v", "vb", "vh", "vhd",
+			"vhdl", "vm", "vue", "xml", "xsl", "xstl", "yaml", "zsh"
+	));
+
+	private static final Set<String> imageExtentions = new HashSet<>(Arrays.asList(
+			"3dv", "ai", "amf", "art", "ase", "awg", "blp", "bmp", "bw", "cd5", "cdr", "cgm", "cit", "cmx", "cpt",
+			"cr2", "cur", "cut", "dds", "dib", "djvu", "dxf", "e2d", "ecw", "egt", "emf", "eps", "exif", "gbr",
+			"gif", "gpl", "grf", "hdp", "icns", "ico", "iff", "int", "inta", "jfif", "jng", "jp2", "jpeg", "jpg", "jps",
+			"jxr", "lbm", "liff", "max", "miff", "mng", "msp", "nitf", "nrrd", "odg", "ota", "pam", "pbm", "pc1", "pc2",
+			"pc3", "pcf", "pct", "pcx", "pdd", "pdn", "pgf", "pgm", "pi1", "pi2", "pi3", "pict", "png", "pnm", "pns",
+			"ppm", "psb", "psp", "px", "pxm", "pxr", "qfx", "ras", "raw", "rgb", "rgba", "rle", "sct", "sgi",
+			"sid", "stl", "sun", "svg", "sxd", "tga", "tif", "tiff", "v2d", "vnd", "vrml", "vtf", "wdp", "webp", "wmf",
+			"x3d", "xar", "xbm", "xcf", "xpm"));
+
+	private static final Set<String> audioExtensions = new HashSet<>(Arrays.asList("aac", "mp3", "wav"));
+
+	private static final Set<String> videoExtensions = new HashSet<>(Arrays.asList(
+			"avi", "mp4", "mpeg", "mpg", "ogg", "webm"));
 
 	public FileService() {
 		this.baseDir = (new File("")).getAbsolutePath();
+		this.baseDir = "/home/ashish";
 	}
 
 	public void setBaseDir(String baseDir) {
@@ -38,7 +67,11 @@ public class FileService {
 	}
 
 	public File parsePath(String path) {
-		return new File(this.baseDir + File.separator + path.replace("/", File.separator));
+		return Paths.get(this.baseDir, path).toFile();
+	}
+
+	public File parsePath(String parentPath, String childPath) {
+		return Paths.get(this.baseDir, parentPath, childPath).toFile();
 	}
 
 	public List<File> parsePaths(File parentDir, List<String> files) {
@@ -59,14 +92,13 @@ public class FileService {
 			obj.setName(file.getName());
 			obj.setDir(file.isDirectory());
 			obj.setSize(getSizeInString(file.length()));
-			if (!obj.isDir()) {
-				try {
-					String mime = Files.probeContentType(file.toPath());
-					obj.setMime(mime);
-					obj.setTextFile(mime != null && mime.startsWith("text/"));
-				} catch (Exception e) {
-					log.error("Couldn't fetch mime of file - {}", file.getAbsolutePath(), e);
-				}
+			obj.setSizeInBytes(file.length());
+			if (!file.isDirectory()) {
+				String extension = getExtension(file.getName());
+				obj.setText(file.length() <= 5000000 && textFileExtensions.contains(extension));
+				obj.setImage(imageExtentions.contains(extension));
+				obj.setAudio(audioExtensions.contains(extension));
+				obj.setVideo(videoExtensions.contains(extension));
 			}
 
 			list.add(obj);
@@ -192,15 +224,11 @@ public class FileService {
 		renameTo(dir.toPath().resolve(oldName).toFile(), dir.toPath().resolve(newName).toFile());
 	}
 
-	public void createDir(File file, String newName) {
-		mkdirs(file.toPath().resolve(newName).toFile());
-	}
-
-	public void remoteUpload(File sourceDir, String url, String newName) throws URISyntaxException {
+	public void remoteUpload(File destinationFile, String url) throws URISyntaxException {
 		URI uri = new URI(url);
 		(new Thread(() -> {
 			try (BufferedInputStream in = new BufferedInputStream(uri.toURL().openStream());
-				 FileOutputStream fileOutputStream = new FileOutputStream(sourceDir.toPath().resolve(newName).toString())) {
+				 FileOutputStream fileOutputStream = new FileOutputStream(destinationFile)) {
 				byte[] dataBuffer = new byte[1024];
 				int bytesRead;
 				while ((bytesRead = in.read(dataBuffer, 0, 1024)) != -1) {
@@ -265,11 +293,32 @@ public class FileService {
 		}
 	}
 
-	public void saveTextFile(Path path, String content) throws FileNotFoundException {
-		mkdirs(path.toFile().getParentFile());
-		try (PrintWriter out = new PrintWriter(path.toFile())) {
+	public void saveTextFile(File file, String content) throws FileNotFoundException {
+		mkdirs(file.getParentFile());
+		try (PrintWriter out = new PrintWriter(file)) {
 			out.print(content);
 			out.flush();
+		}
+	}
+
+	public String readTextFile(File file) throws IOException {
+		try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+			StringBuilder sb = null;
+			String line;
+			while ((line = br.readLine()) != null) {
+				if (sb == null) {
+					sb = new StringBuilder();
+					sb.append(line);
+				} else {
+					sb.append('\n').append(line);
+				}
+			}
+			if (sb == null) {
+				return "";
+			} else {
+				return sb.toString();
+			}
+
 		}
 	}
 
@@ -296,5 +345,32 @@ public class FileService {
 		}
 	}
 
+	public String getExtension(String fileName) {
+		int dotIndex = fileName.lastIndexOf('.');
+		if (dotIndex == -1 || dotIndex == fileName.length() - 1) {
+			return "";
+		}
+		return fileName.substring(dotIndex + 1).toLowerCase();
+	}
 
+	public boolean isTextFile(File file) throws IOException {
+		if (!file.exists() || file.length() < 10000000) {
+			return false;
+		}
+		byte[] contentBytes = Files.readAllBytes(file.toPath());
+		Tika tika = new Tika();
+		try (ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(contentBytes)) {
+			Set<MediaType> mediaTypes = new HashSet<>();
+			MediaType mediaType = MediaType.parse(tika.detect(byteArrayInputStream));
+			MediaTypeRegistry mediaTypeRegistry = MediaTypeRegistry.getDefaultRegistry();
+			while (mediaType != null) {
+				mediaTypes.addAll(mediaTypeRegistry.getAliases(mediaType));
+				mediaTypes.add(mediaType);
+				mediaType = mediaTypeRegistry.getSupertype(mediaType);
+			}
+			return mediaTypes.stream().anyMatch(mt -> mt.getType().equals("text"));
+		} catch (IOException e) {
+			return false;
+		}
+	}
 }
