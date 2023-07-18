@@ -8,6 +8,7 @@ import org.apache.tika.Tika;
 import org.apache.tika.mime.MediaType;
 import org.apache.tika.mime.MediaTypeRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
@@ -30,14 +31,10 @@ public class FileService {
 	@Autowired
 	private ExtensionService extensionService;
 
-	private final String baseDir;
+	@Value("${base.dir}")
+	private String baseDir;
 
 	private final DecimalFormat decimalFormat = new DecimalFormat("#.##");
-
-
-	public FileService() {
-		this.baseDir = (new File(VueDiskApplication.getBaseDir())).getAbsolutePath();
-	}
 
 	public String getBaseDir() {
 		return this.baseDir;

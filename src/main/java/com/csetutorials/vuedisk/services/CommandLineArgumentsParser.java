@@ -5,6 +5,8 @@ import org.apache.commons.cli.*;
 import java.io.File;
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 public class CommandLineArgumentsParser {
@@ -42,12 +44,11 @@ public class CommandLineArgumentsParser {
 		checkApplicationPort();
 	}
 
-	public String getBaseDir() {
-		return this.baseDir;
-	}
-
-	public int getPort() {
-		return this.port;
+	public Map<String, Object> getProperties() {
+		Map<String, Object> map = new HashMap<>();
+		map.put("server.port", this.port);
+		map.put("base.dir", (new File(this.baseDir)).getAbsolutePath());
+		return map;
 	}
 
 	private void printHelp(int exitCode) {
@@ -96,7 +97,7 @@ public class CommandLineArgumentsParser {
 		}
 	}
 
-	private Options buildOptions() {
+	private void buildOptions() {
 		options = new Options();
 		Option option = Option.builder("b")
 				.argName("basedir")
@@ -124,7 +125,6 @@ public class CommandLineArgumentsParser {
 				.desc("Print this help")
 				.build();
 		options.addOption(option);
-		return options;
 	}
 
 }
