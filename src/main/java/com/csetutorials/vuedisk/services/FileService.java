@@ -1,11 +1,13 @@
 package com.csetutorials.vuedisk.services;
 
+import com.csetutorials.vuedisk.VueDiskApplication;
 import com.csetutorials.vuedisk.beans.FilesListObj;
 import com.csetutorials.vuedisk.beans.SizeSse;
 import lombok.extern.log4j.Log4j2;
 import org.apache.tika.Tika;
 import org.apache.tika.mime.MediaType;
 import org.apache.tika.mime.MediaTypeRegistry;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
@@ -25,42 +27,16 @@ import java.util.zip.ZipOutputStream;
 @Log4j2
 public class FileService {
 
-	private String baseDir;
+	@Autowired
+	private ExtensionService extensionService;
+
+	private final String baseDir;
 
 	private final DecimalFormat decimalFormat = new DecimalFormat("#.##");
-	private static final Set<String> textFileExtensions = new HashSet<>(Arrays.asList(
-			"gnumakefile", "makefile", "ada", "adb", "ads", "ahk", "alg", "as", "ascx", "ashx", "asp", "aspx", "awk",
-			"bash", "bat", "c", "cbl", "cc", "cfg", "cfm", "cfml", "clj", "cmf", "cob", "coffee", "config", "cpp",
-			"cpy", "cs", "css", "cxx", "d", "dart", "e", "erl", "ex", "exs", "f", "f90", "f95", "fsx", "go",
-			"groovy", "h", "hpp", "hrl", "hs", "htm", "html", "inc", "j", "jade", "java", "jl", "js", "json", "kt",
-			"liquid", "lisp", "log", "lsp", "lua", "m", "makefile", "md", "ml", "mli", "mm", "nim", "pas", "php", "pl",
-			"pp", "prg", "pro", "properties", "ps1", "psm1", "pwn", "py", "r", "rb", "rkt", "rs", "sas", "sass",
-			"scala", "scm", "scss", "sh", "sql", "st", "swift", "tcl", "text", "toml", "ts", "v", "vb", "vh", "vhd",
-			"vhdl", "vm", "vue", "xml", "xsl", "xstl", "yaml", "zsh"
-	));
 
-	private static final Set<String> imageExtentions = new HashSet<>(Arrays.asList(
-			"3dv", "ai", "amf", "art", "ase", "awg", "blp", "bmp", "bw", "cd5", "cdr", "cgm", "cit", "cmx", "cpt",
-			"cr2", "cur", "cut", "dds", "dib", "djvu", "dxf", "e2d", "ecw", "egt", "emf", "eps", "exif", "gbr",
-			"gif", "gpl", "grf", "hdp", "icns", "ico", "iff", "int", "inta", "jfif", "jng", "jp2", "jpeg", "jpg", "jps",
-			"jxr", "lbm", "liff", "max", "miff", "mng", "msp", "nitf", "nrrd", "odg", "ota", "pam", "pbm", "pc1", "pc2",
-			"pc3", "pcf", "pct", "pcx", "pdd", "pdn", "pgf", "pgm", "pi1", "pi2", "pi3", "pict", "png", "pnm", "pns",
-			"ppm", "psb", "psp", "px", "pxm", "pxr", "qfx", "ras", "raw", "rgb", "rgba", "rle", "sct", "sgi",
-			"sid", "stl", "sun", "svg", "sxd", "tga", "tif", "tiff", "v2d", "vnd", "vrml", "vtf", "wdp", "webp", "wmf",
-			"x3d", "xar", "xbm", "xcf", "xpm"));
-
-	private static final Set<String> audioExtensions = new HashSet<>(Arrays.asList("aac", "mp3", "wav"));
-
-	private static final Set<String> videoExtensions = new HashSet<>(Arrays.asList(
-			"avi", "mp4", "mpeg", "mpg", "ogg", "webm"));
 
 	public FileService() {
-		this.baseDir = (new File("")).getAbsolutePath();
-		this.baseDir = "/home/ashish";
-	}
-
-	public void setBaseDir(String baseDir) {
-		this.baseDir = baseDir;
+		this.baseDir = (new File(VueDiskApplication.getBaseDir())).getAbsolutePath();
 	}
 
 	public String getBaseDir() {
@@ -95,11 +71,10 @@ public class FileService {
 			obj.setSize(getSizeInString(file.length()));
 			obj.setSizeInBytes(file.length());
 			if (!file.isDirectory()) {
-				String extension = getExtension(file.getName());
-				obj.setText(file.length() <= 5000000 && textFileExtensions.contains(extension));
-				obj.setImage(imageExtentions.contains(extension));
-				obj.setAudio(audioExtensions.contains(extension));
-				obj.setVideo(videoExtensions.contains(extension));
+				obj.setText(file.length() <= 5000000 && extensionService.isText(file.getName()));
+				obj.setImage(extensionService.isImage(file.getName()));
+				obj.setAudio(extensionService.isAudio(file.getName()));
+				obj.setVideo(extensionService.isVideo(file.getName()));
 			}
 			list.add(obj);
 		}
@@ -207,17 +182,18 @@ public class FileService {
 			}
 			sizeSse.setItems(sizeSse.getItems() + 1);
 			if (file.isDirectory()) {
-				File[] arr = file.listFiles();
-				if (arr != null) {
-					for (File temp : arr) {
-						stack.push(temp);
-					}
+				for (File temp : checkNonNull(file.listFiles())) {
+					stack.push(temp);
 				}
 			} else {
 				sizeSse.setSizeInBytes(sizeSse.getSizeInBytes() + file.length());
 			}
 		}
 		sizeSse.setFinished(true);
+	}
+
+	private File[] checkNonNull(File[] files) {
+		return files != null ? files : new File[]{};
 	}
 
 	public String getSizeInString(long size) {
@@ -358,13 +334,6 @@ public class FileService {
 		}
 	}
 
-	public String getExtension(String fileName) {
-		int dotIndex = fileName.lastIndexOf('.');
-		if (dotIndex == -1 || dotIndex == fileName.length() - 1) {
-			return "";
-		}
-		return fileName.substring(dotIndex + 1).toLowerCase();
-	}
 
 	public boolean isTextFile(File file) throws IOException {
 		if (!file.exists() || file.length() < 10000000) {
