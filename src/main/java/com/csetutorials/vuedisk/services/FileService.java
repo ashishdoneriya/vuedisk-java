@@ -1,6 +1,5 @@
 package com.csetutorials.vuedisk.services;
 
-import com.csetutorials.vuedisk.VueDiskApplication;
 import com.csetutorials.vuedisk.beans.FilesListObj;
 import com.csetutorials.vuedisk.beans.SizeSse;
 import lombok.extern.log4j.Log4j2;
@@ -9,6 +8,7 @@ import org.apache.tika.mime.MediaType;
 import org.apache.tika.mime.MediaTypeRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
@@ -20,7 +20,6 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.text.DecimalFormat;
 import java.util.*;
-import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -49,7 +48,7 @@ public class FileService {
 	}
 
 	public List<File> parsePaths(File parentDir, List<String> files) {
-		return files.stream().map(file -> parentDir.toPath().resolve(file).toFile()).collect(Collectors.toList());
+		return files.stream().map(file -> parentDir.toPath().resolve(file).toFile()).toList();
 	}
 
 	public List<FilesListObj> list(File dir) {
@@ -163,6 +162,7 @@ public class FileService {
 		deleteSilently(dir);
 	}
 
+	@Async
 	public void size(SizeSse sizeSse, File sourceDir, List<String> files) {
 		if (!sourceDir.exists()) {
 			sizeSse.setFinished(true);

@@ -6,6 +6,7 @@ import com.csetutorials.vuedisk.beans.SizeSse;
 import com.csetutorials.vuedisk.services.FileService;
 import com.csetutorials.vuedisk.services.ThumbnailService;
 import com.csetutorials.vuedisk.services.UploadService;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.FileSystemResource;
@@ -19,8 +20,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import javax.servlet.http.HttpServletResponse;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.MalformedURLException;
@@ -28,8 +29,6 @@ import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.zip.ZipOutputStream;
 
 @RestController
@@ -45,6 +44,9 @@ public class FileController {
 
 	@Autowired
 	UploadService uploadService;
+
+	@Autowired
+	AsyncMethods asyncMethods;
 
 	@GetMapping("list")
 	public List<FilesListObj> list(@RequestParam("path") String dirPath) {
@@ -156,7 +158,7 @@ public class FileController {
 	}
 
 	@PostMapping("save-text-file")
-	public String saveTextFile(@RequestBody FormParams params) throws Exception {
+	public String saveTextFile(@RequestBody FormParams params) throws FileNotFoundException {
 		File file = fileService.parsePath(params.getSourceDir(), params.getName());
 		String content = params.getContent();
 		fileService.saveTextFile(file, content);
@@ -184,30 +186,11 @@ public class FileController {
 	public SseEmitter size(@RequestBody FormParams params) {
 		SseEmitter emitter = new SseEmitter();
 		SizeSse sizeSse = new SizeSse();
-		(new Thread(() -> fileService.size(sizeSse, fileService.parsePath(params.getSourceDir()), params.getFiles()))).start();
-		ExecutorService sseMvcExecutor = Executors.newSingleThreadExecutor();
+		fileService.size(sizeSse, fileService.parsePath(params.getSourceDir()), params.getFiles());
 		emitter.onCompletion(() -> sizeSse.setStopped(true));
-		emitter.onError((obj) -> sizeSse.setStopped(true));
+		emitter.onError(obj -> sizeSse.setStopped(true));
 		emitter.onTimeout(() -> sizeSse.setStopped(true));
-		sseMvcExecutor.execute(() -> {
-			try {
-				while (!sizeSse.isFinished() && !sizeSse.isStopped()) {
-					Thread.sleep(1000);
-					SseEmitter.SseEventBuilder event = SseEmitter.event()
-							.data("Size : " + fileService.getSizeInString(sizeSse.getSizeInBytes()) + ", Items : " + sizeSse.getItems());
-					emitter.send(event);
-				}
-				if (!sizeSse.isStopped()) {
-					SseEmitter.SseEventBuilder event = SseEmitter.event()
-							.data("Size : " + fileService.getSizeInString(sizeSse.getSizeInBytes()) + ", Items : " + sizeSse.getItems());
-					emitter.send(event);
-					emitter.complete();
-				}
-			} catch (Exception e) {
-				sizeSse.setStopped(true);
-				emitter.complete();
-			}
-		});
+		asyncMethods.monitorDirSizeCalculator(emitter, sizeSse);
 		return emitter;
 	}
 
