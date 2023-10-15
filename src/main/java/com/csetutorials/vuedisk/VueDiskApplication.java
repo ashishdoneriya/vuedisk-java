@@ -26,17 +26,4 @@ public class VueDiskApplication {
 		app.run(args);
 	}
 
-	@Bean
-	public TomcatProtocolHandlerCustomizer<?> protocolHandlerVirtualThreadExecutorCustomizer() {
-		return protocolHandler -> {
-			log.info("Configuring " + protocolHandler + " to use VirtualThreadPerTaskExecutor");
-			protocolHandler.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
-		};
-	}
-
-	@Bean(TaskExecutionAutoConfiguration.APPLICATION_TASK_EXECUTOR_BEAN_NAME)
-	public AsyncTaskExecutor asyncTaskExecutor() {
-		return new TaskExecutorAdapter(Executors.newVirtualThreadPerTaskExecutor());
-	}
-
 }
