@@ -14,7 +14,7 @@
 	<name>fileserver</name>
 	<description>VueDisk</description>
 	<properties>
-		<java.version>21</java.version>
+		<java.version>25</java.version>
 		<javafx.version>17.0.1</javafx.version>
 		<commons.io.version>2.11.0</commons.io.version>
 		<afterburner.version>1.7.0</afterburner.version>
@@ -32,7 +32,6 @@
 		</dependency>
 		<dependency>
 			<groupId>org.projectlombok</groupId>
-			<artifactId>lombok</artifactId>
 			<optional>true</optional>
 		</dependency>
 		<dependency>
