@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>3.2.0</version>
+		<version>4.0.6</version>
 		<relativePath />
 	</parent>
 	<groupId>com.csetutorials</groupId>
@@ -14,8 +14,9 @@
 	<name>fileserver</name>
 	<description>VueDisk</description>
 	<properties>
-		<java.version>21</java.version>
+		<java.version>25</java.version>
 		<javafx.version>17.0.1</javafx.version>
+		<lombok.version>1.18.42</lombok.version>
 		<commons.io.version>2.11.0</commons.io.version>
 		<afterburner.version>1.7.0</afterburner.version>
 		<image.scaling.version>0.8.6</image.scaling.version>
@@ -33,6 +34,7 @@
 		<dependency>
 			<groupId>org.projectlombok</groupId>
 			<artifactId>lombok</artifactId>
+			<version>${lombok.version}</version>
 			<optional>true</optional>
 		</dependency>
 		<dependency>
@@ -86,6 +88,19 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<configuration>
+					<annotationProcessorPaths>
+						<path>
+							<groupId>org.projectlombok</groupId>
+							<artifactId>lombok</artifactId>
+							<version>${lombok.version}</version>
+						</path>
+					</annotationProcessorPaths>
+				</configuration>
 			</plugin>
 		</plugins>
 	</build>
