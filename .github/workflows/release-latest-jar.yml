@@ -125,6 +125,7 @@ jobs:
           cache: maven
 
       - name: Build Windows binary
+        shell: pwsh
         run: .\mvnw.cmd -B -Pnative -DskipTests native:compile
 
       - name: Prepare Windows asset
