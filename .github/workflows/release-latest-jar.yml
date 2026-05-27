@@ -4,13 +4,16 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  publish-latest-assets:
+  build-jar:
     runs-on: ubuntu-latest
 
     steps:
@@ -27,7 +30,26 @@ jobs:
       - name: Build JAR
         run: mvn -B clean package -DskipTests
 
-      - name: Build static Linux binary
+      - name: Prepare JAR asset
+        run: |
+          mkdir -p release
+          cp target/*.jar release/vuedisk.jar
+
+      - name: Upload JAR asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: vuedisk.jar
+          path: release/vuedisk.jar
+          if-no-files-found: error
+
+  build-linux-x64:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Build static Linux x64 binary
         run: |
           docker run --rm \
             --entrypoint sh \
@@ -35,24 +57,191 @@ jobs:
             -v "$HOME/.m2:/root/.m2" \
             -w /workspace \
             ghcr.io/graalvm/native-image-community:25-muslib \
-            -lc "chmod +x mvnw && ./mvnw -B -Pnative -DskipTests native:compile"
+            -lc "chmod +x mvnw && ./mvnw -B -Pnative,linux-static-native -DskipTests native:compile"
 
-      - name: Prepare release assets
+      - name: Prepare Linux x64 asset
         run: |
           mkdir -p release
-          cp target/*.jar release/vuedisk.jar
           cp target/vuedisk release/vuedisk-linux-x64
           chmod +x release/vuedisk-linux-x64
+
+      - name: Upload Linux x64 asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: vuedisk-linux-x64
+          path: release/vuedisk-linux-x64
+          if-no-files-found: error
+
+  build-linux-arm64:
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          distribution: graalvm-community
+          java-version: 25
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache: maven
+
+      - name: Build Linux arm64 binary
+        run: ./mvnw -B -Pnative -DskipTests native:compile
+
+      - name: Prepare Linux arm64 asset
+        run: |
+          mkdir -p release
+          cp target/vuedisk release/vuedisk-linux-arm64
+          chmod +x release/vuedisk-linux-arm64
+
+      - name: Upload Linux arm64 asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: vuedisk-linux-arm64
+          path: release/vuedisk-linux-arm64
+          if-no-files-found: error
+
+  build-windows-x64:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          distribution: graalvm-community
+          java-version: 25
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache: maven
+
+      - name: Build Windows x64 binary
+        shell: pwsh
+        run: .\mvnw.cmd -B -Pnative -DskipTests native:compile
+
+      - name: Prepare Windows x64 asset
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force release | Out-Null
+          Copy-Item target\vuedisk.exe release\vuedisk-windows-x64.exe
+
+      - name: Upload Windows x64 asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: vuedisk-windows-x64.exe
+          path: release/vuedisk-windows-x64.exe
+          if-no-files-found: error
+
+  build-macos-arm64:
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          distribution: graalvm-community
+          java-version: 25
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache: maven
+
+      - name: Build macOS Apple Silicon binary
+        run: ./mvnw -B -Pnative -DskipTests native:compile
+
+      - name: Verify macOS Apple Silicon binary
+        run: |
+          file target/vuedisk
+          ./target/vuedisk --help
+
+      - name: Prepare macOS Apple Silicon assets
+        run: |
+          mkdir -p release
+          cp target/vuedisk release/vuedisk-macos-silicon
+          cp target/vuedisk release/vuedisk-macos-m1
+          chmod +x release/vuedisk-macos-silicon release/vuedisk-macos-m1
+
+      - name: Upload macOS Silicon asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: vuedisk-macos-silicon
+          path: release/vuedisk-macos-silicon
+          if-no-files-found: error
+
+      - name: Upload macOS M1 asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: vuedisk-macos-m1
+          path: release/vuedisk-macos-m1
+          if-no-files-found: error
+
+  build-macos-intel:
+    runs-on: macos-15-intel
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          distribution: graalvm-community
+          java-version: 25
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache: maven
+
+      - name: Build macOS Intel binary
+        run: ./mvnw -B -Pnative -DskipTests native:compile
+
+      - name: Verify macOS Intel binary
+        run: |
+          file target/vuedisk
+          ./target/vuedisk --help
+
+      - name: Prepare macOS Intel asset
+        run: |
+          mkdir -p release
+          cp target/vuedisk release/vuedisk-macos-intel
+          chmod +x release/vuedisk-macos-intel
+
+      - name: Upload macOS Intel asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: vuedisk-macos-intel
+          path: release/vuedisk-macos-intel
+          if-no-files-found: error
+
+  publish-latest-assets:
+    if: github.event_name != 'pull_request'
+    needs:
+      - build-jar
+      - build-linux-x64
+      - build-linux-arm64
+      - build-windows-x64
+      - build-macos-arm64
+      - build-macos-intel
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download release assets
+        uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
 
       - name: Publish latest release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
           name: Latest build
-          body: Latest JAR and static Linux x64 binary built from the main branch.
-          files: |
-            release/vuedisk.jar
-            release/vuedisk-linux-x64
+          body: Latest JAR and platform binaries built from the main branch.
+          files: release/*
+          fail_on_unmatched_files: true
+          overwrite_files: true
           make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
