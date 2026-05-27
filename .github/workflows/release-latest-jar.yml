@@ -39,23 +39,14 @@ jobs:
           path: release/vuedisk.jar
           if-no-files-found: error
 
-  build-linux-static:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: ubuntu-latest
-            asset-name: vuedisk-linux-x64
-          - runner: ubuntu-24.04-arm
-            asset-name: vuedisk-linux-arm64
-
-    runs-on: ${{ matrix.runner }}
+  build-linux-x64:
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Build static Linux binary
+      - name: Build static Linux x64 binary
         run: |
           docker run --rm \
             --entrypoint sh \
@@ -65,17 +56,48 @@ jobs:
             ghcr.io/graalvm/native-image-community:25-muslib \
             -lc "chmod +x mvnw && ./mvnw -B -Pnative,linux-static-native -DskipTests native:compile"
 
-      - name: Prepare Linux asset
+      - name: Prepare Linux x64 asset
         run: |
           mkdir -p release
-          cp target/vuedisk "release/${{ matrix.asset-name }}"
-          chmod +x "release/${{ matrix.asset-name }}"
+          cp target/vuedisk release/vuedisk-linux-x64
+          chmod +x release/vuedisk-linux-x64
 
-      - name: Upload Linux asset
+      - name: Upload Linux x64 asset
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.asset-name }}
-          path: release/${{ matrix.asset-name }}
+          name: vuedisk-linux-x64
+          path: release/vuedisk-linux-x64
+          if-no-files-found: error
+
+  build-linux-arm64:
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          distribution: graalvm-community
+          java-version: 25
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache: maven
+
+      - name: Build Linux arm64 binary
+        run: ./mvnw -B -Pnative -DskipTests native:compile
+
+      - name: Prepare Linux arm64 asset
+        run: |
+          mkdir -p release
+          cp target/vuedisk release/vuedisk-linux-arm64
+          chmod +x release/vuedisk-linux-arm64
+
+      - name: Upload Linux arm64 asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: vuedisk-linux-arm64
+          path: release/vuedisk-linux-arm64
           if-no-files-found: error
 
   build-windows:
@@ -160,7 +182,8 @@ jobs:
   publish-latest-assets:
     needs:
       - build-jar
-      - build-linux-static
+      - build-linux-x64
+      - build-linux-arm64
       - build-windows
       - build-macos-arm64
     runs-on: ubuntu-latest
