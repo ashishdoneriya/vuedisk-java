@@ -4,13 +4,17 @@ VueDisk Java is a Spring Boot based file server.
 
 ## Download latest release
 
-The latest JAR and static Linux x64 binary built from the `main` branch are available here:
+The latest JAR and platform binaries built from the `main` branch are available here:
 
-[Download latest vuedisk.jar](https://github.com/ashishdoneriya/vuedisk-java/releases/latest/download/vuedisk.jar)
+- [Download latest vuedisk.jar](https://github.com/ashishdoneriya/vuedisk-java/releases/latest/download/vuedisk.jar)
+- [Download latest vuedisk-linux-x64](https://github.com/ashishdoneriya/vuedisk-java/releases/latest/download/vuedisk-linux-x64)
+- [Download latest vuedisk-linux-arm64](https://github.com/ashishdoneriya/vuedisk-java/releases/latest/download/vuedisk-linux-arm64)
+- [Download latest vuedisk-windows-x64.exe](https://github.com/ashishdoneriya/vuedisk-java/releases/latest/download/vuedisk-windows-x64.exe)
+- [Download latest vuedisk-windows-arm64.exe](https://github.com/ashishdoneriya/vuedisk-java/releases/latest/download/vuedisk-windows-arm64.exe)
+- [Download latest vuedisk-macos-silicon](https://github.com/ashishdoneriya/vuedisk-java/releases/latest/download/vuedisk-macos-silicon)
+- [Download latest vuedisk-macos-m1](https://github.com/ashishdoneriya/vuedisk-java/releases/latest/download/vuedisk-macos-m1)
 
-[Download latest vuedisk-linux-x64](https://github.com/ashishdoneriya/vuedisk-java/releases/latest/download/vuedisk-linux-x64)
-
-This link is updated automatically by GitHub Actions whenever new code is pushed to `main`.
+These links are updated automatically by GitHub Actions whenever new code is pushed to `main`.
 
 ## Build locally
 
