@@ -91,8 +91,6 @@
 				<configuration>
 					<imageName>vuedisk</imageName>
 					<buildArgs>
-						<buildArg>--static</buildArg>
-						<buildArg>--libc=musl</buildArg>
 						<buildArg>-H:+ReportExceptionStackTraces</buildArg>
 					</buildArgs>
 				</configuration>
@@ -116,6 +114,26 @@
 			</plugin>
 		</plugins>
 	</build>
+	<profiles>
+		<profile>
+			<id>linux-static-native</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.graalvm.buildtools</groupId>
+						<artifactId>native-maven-plugin</artifactId>
+						<configuration>
+							<buildArgs>
+								<buildArg>--static</buildArg>
+								<buildArg>--libc=musl</buildArg>
+								<buildArg>-H:+ReportExceptionStackTraces</buildArg>
+							</buildArgs>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
 	<repositories>
 		<repository>
 			<id>spring-milestones</id>
