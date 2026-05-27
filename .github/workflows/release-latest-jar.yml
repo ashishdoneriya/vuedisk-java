@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - main
+      - codex/add-platform-download-links
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -159,7 +163,12 @@ jobs:
       - name: Build macOS Apple Silicon binary
         run: ./mvnw -B -Pnative -DskipTests native:compile
 
-      - name: Prepare macOS assets
+      - name: Verify macOS Apple Silicon binary
+        run: |
+          file target/vuedisk
+          ./target/vuedisk --help
+
+      - name: Prepare macOS Apple Silicon assets
         run: |
           mkdir -p release
           cp target/vuedisk release/vuedisk-macos-silicon
@@ -180,13 +189,51 @@ jobs:
           path: release/vuedisk-macos-m1
           if-no-files-found: error
 
+  build-macos-intel:
+    runs-on: macos-13
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          distribution: graalvm-community
+          java-version: 25
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache: maven
+
+      - name: Build macOS Intel binary
+        run: ./mvnw -B -Pnative -DskipTests native:compile
+
+      - name: Verify macOS Intel binary
+        run: |
+          file target/vuedisk
+          ./target/vuedisk --help
+
+      - name: Prepare macOS Intel asset
+        run: |
+          mkdir -p release
+          cp target/vuedisk release/vuedisk-macos-intel
+          chmod +x release/vuedisk-macos-intel
+
+      - name: Upload macOS Intel asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: vuedisk-macos-intel
+          path: release/vuedisk-macos-intel
+          if-no-files-found: error
+
   publish-latest-assets:
+    if: github.event_name != 'pull_request'
     needs:
       - build-jar
       - build-linux-x64
       - build-linux-arm64
       - build-windows
       - build-macos-arm64
+      - build-macos-intel
     runs-on: ubuntu-latest
 
     steps:
