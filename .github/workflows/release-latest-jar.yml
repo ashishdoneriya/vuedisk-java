@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - codex/add-platform-download-links
   pull_request:
     branches:
       - main
@@ -104,17 +103,8 @@ jobs:
           path: release/vuedisk-linux-arm64
           if-no-files-found: error
 
-  build-windows:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: windows-latest
-            asset-name: vuedisk-windows-x64.exe
-          - runner: windows-11-arm
-            asset-name: vuedisk-windows-arm64.exe
-
-    runs-on: ${{ matrix.runner }}
+  build-windows-x64:
+    runs-on: windows-latest
 
     steps:
       - name: Checkout source
@@ -128,21 +118,21 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           cache: maven
 
-      - name: Build Windows binary
+      - name: Build Windows x64 binary
         shell: pwsh
         run: .\mvnw.cmd -B -Pnative -DskipTests native:compile
 
-      - name: Prepare Windows asset
+      - name: Prepare Windows x64 asset
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force release | Out-Null
-          Copy-Item target\vuedisk.exe release\${{ matrix.asset-name }}
+          Copy-Item target\vuedisk.exe release\vuedisk-windows-x64.exe
 
-      - name: Upload Windows asset
+      - name: Upload Windows x64 asset
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.asset-name }}
-          path: release/${{ matrix.asset-name }}
+          name: vuedisk-windows-x64.exe
+          path: release/vuedisk-windows-x64.exe
           if-no-files-found: error
 
   build-macos-arm64:
@@ -231,7 +221,7 @@ jobs:
       - build-jar
       - build-linux-x64
       - build-linux-arm64
-      - build-windows
+      - build-windows-x64
       - build-macos-arm64
       - build-macos-intel
     runs-on: ubuntu-latest
