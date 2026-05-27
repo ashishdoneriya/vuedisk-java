@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  publish-latest-assets:
+  build-jar:
     runs-on: ubuntu-latest
 
     steps:
@@ -27,6 +27,34 @@ jobs:
       - name: Build JAR
         run: mvn -B clean package -DskipTests
 
+      - name: Prepare JAR asset
+        run: |
+          mkdir -p release
+          cp target/*.jar release/vuedisk.jar
+
+      - name: Upload JAR asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: vuedisk.jar
+          path: release/vuedisk.jar
+          if-no-files-found: error
+
+  build-linux-static:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            asset-name: vuedisk-linux-x64
+          - runner: ubuntu-24.04-arm
+            asset-name: vuedisk-linux-arm64
+
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
       - name: Build static Linux binary
         run: |
           docker run --rm \
@@ -35,24 +63,124 @@ jobs:
             -v "$HOME/.m2:/root/.m2" \
             -w /workspace \
             ghcr.io/graalvm/native-image-community:25-muslib \
-            -lc "chmod +x mvnw && ./mvnw -B -Pnative -DskipTests native:compile"
+            -lc "chmod +x mvnw && ./mvnw -B -Pnative,linux-static-native -DskipTests native:compile"
 
-      - name: Prepare release assets
+      - name: Prepare Linux asset
         run: |
           mkdir -p release
-          cp target/*.jar release/vuedisk.jar
-          cp target/vuedisk release/vuedisk-linux-x64
-          chmod +x release/vuedisk-linux-x64
+          cp target/vuedisk "release/${{ matrix.asset-name }}"
+          chmod +x "release/${{ matrix.asset-name }}"
+
+      - name: Upload Linux asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset-name }}
+          path: release/${{ matrix.asset-name }}
+          if-no-files-found: error
+
+  build-windows:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            asset-name: vuedisk-windows-x64.exe
+          - runner: windows-11-arm
+            asset-name: vuedisk-windows-arm64.exe
+
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          distribution: graalvm-community
+          java-version: 25
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache: maven
+
+      - name: Build Windows binary
+        run: .\mvnw.cmd -B -Pnative -DskipTests native:compile
+
+      - name: Prepare Windows asset
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force release | Out-Null
+          Copy-Item target\vuedisk.exe release\${{ matrix.asset-name }}
+
+      - name: Upload Windows asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset-name }}
+          path: release/${{ matrix.asset-name }}
+          if-no-files-found: error
+
+  build-macos-arm64:
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          distribution: graalvm-community
+          java-version: 25
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache: maven
+
+      - name: Build macOS Apple Silicon binary
+        run: ./mvnw -B -Pnative -DskipTests native:compile
+
+      - name: Prepare macOS assets
+        run: |
+          mkdir -p release
+          cp target/vuedisk release/vuedisk-macos-silicon
+          cp target/vuedisk release/vuedisk-macos-m1
+          chmod +x release/vuedisk-macos-silicon release/vuedisk-macos-m1
+
+      - name: Upload macOS Silicon asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: vuedisk-macos-silicon
+          path: release/vuedisk-macos-silicon
+          if-no-files-found: error
+
+      - name: Upload macOS M1 asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: vuedisk-macos-m1
+          path: release/vuedisk-macos-m1
+          if-no-files-found: error
+
+  publish-latest-assets:
+    needs:
+      - build-jar
+      - build-linux-static
+      - build-windows
+      - build-macos-arm64
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download release assets
+        uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
 
       - name: Publish latest release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
           name: Latest build
-          body: Latest JAR and static Linux x64 binary built from the main branch.
-          files: |
-            release/vuedisk.jar
-            release/vuedisk-linux-x64
+          body: Latest JAR and platform binaries built from the main branch.
+          files: release/*
+          fail_on_unmatched_files: true
+          overwrite_files: true
           make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
