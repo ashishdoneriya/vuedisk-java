@@ -1,4 +1,4 @@
-name: Publish latest JAR
+name: Publish latest release assets
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  publish-latest-jar:
+  publish-latest-assets:
     runs-on: ubuntu-latest
 
     steps:
@@ -27,18 +27,32 @@ jobs:
       - name: Build JAR
         run: mvn -B clean package -DskipTests
 
-      - name: Prepare release asset
+      - name: Build static Linux binary
+        run: |
+          docker run --rm \
+            --entrypoint sh \
+            -v "$PWD:/workspace" \
+            -v "$HOME/.m2:/root/.m2" \
+            -w /workspace \
+            ghcr.io/graalvm/native-image-community:25-muslib \
+            -lc "chmod +x mvnw && ./mvnw -B -Pnative -DskipTests native:compile"
+
+      - name: Prepare release assets
         run: |
           mkdir -p release
           cp target/*.jar release/vuedisk.jar
+          cp target/vuedisk release/vuedisk-linux-x64
+          chmod +x release/vuedisk-linux-x64
 
       - name: Publish latest release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
           name: Latest build
-          body: Latest JAR built from the main branch.
-          files: release/vuedisk.jar
+          body: Latest JAR and static Linux x64 binary built from the main branch.
+          files: |
+            release/vuedisk.jar
+            release/vuedisk-linux-x64
           make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
