@@ -13,6 +13,7 @@ The latest JAR and platform binaries built from the `main` branch are available 
 - [Download latest vuedisk-windows-arm64.exe](https://github.com/ashishdoneriya/vuedisk-java/releases/latest/download/vuedisk-windows-arm64.exe)
 - [Download latest vuedisk-macos-silicon](https://github.com/ashishdoneriya/vuedisk-java/releases/latest/download/vuedisk-macos-silicon)
 - [Download latest vuedisk-macos-m1](https://github.com/ashishdoneriya/vuedisk-java/releases/latest/download/vuedisk-macos-m1)
+- [Download latest vuedisk-macos-intel](https://github.com/ashishdoneriya/vuedisk-java/releases/latest/download/vuedisk-macos-intel)
 
 These links are updated automatically by GitHub Actions whenever new code is pushed to `main`.
 
