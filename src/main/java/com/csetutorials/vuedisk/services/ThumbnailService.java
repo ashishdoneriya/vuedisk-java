@@ -1,22 +1,15 @@
 package com.csetutorials.vuedisk.services;
 
-import com.mortennobel.imagescaling.ResampleOp;
-import javafx.embed.swing.SwingFXUtils;
-import javafx.scene.image.Image;
 import lombok.extern.log4j.Log4j2;
-import org.apache.commons.imaging.Imaging;
-import org.apache.commons.imaging.common.ImageMetadata;
-import org.apache.commons.imaging.formats.jpeg.JpegImageMetadata;
-import org.apache.commons.imaging.formats.jpeg.exif.ExifRewriter;
-import org.apache.commons.imaging.formats.tiff.TiffImageMetadata;
-import org.apache.commons.imaging.formats.tiff.write.TiffOutputSet;
+import net.coobird.thumbnailator.Thumbnails;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 @Service
 @Log4j2
@@ -30,61 +23,27 @@ public class ThumbnailService {
 
 	public File getThumbnail(File file, String thumbnailSize) throws IOException {
 		int height = thumbnailSize.equals("small") ? SMALL : LARGE;
-		String relativePath = file.getAbsolutePath().substring(fileService.getBaseDir().length() + 1);
+		Path basePath = Paths.get(fileService.getBaseDir()).toAbsolutePath().normalize();
+		Path filePath = file.toPath().toAbsolutePath().normalize();
+		String relativePath = basePath.relativize(filePath).toString();
 		if (relativePath.startsWith(".thumbnails-")) {
 			return file;
 		}
-		File target = new File(fileService.getBaseDir() + File.separator + ".thumbnails-height-" + height + File.separator + relativePath);
+		File target = basePath.resolve(".thumbnails-height-" + height).resolve(relativePath).toFile();
 		if (target.exists()) {
 			return target;
 		}
 		fileService.mkdirs(target.getParentFile());
-		// Create an InputStream object from the File object.
-		InputStream inputStream = new FileInputStream(file);
-
-		// Create an Image object by passing the InputStream object to the constructor.
-		Image image = new Image(inputStream);
-		BufferedImage bufferedImage = SwingFXUtils.fromFXImage(image, null);
-		try (InputStream compressedStream = compress(bufferedImage, (double) height)) {
-
-			// Preserve image orientation
-			TiffOutputSet outputSet = null;
-			ImageMetadata metadata = Imaging.getMetadata(file);
-			if (metadata instanceof JpegImageMetadata) {
-				TiffImageMetadata exif = ((JpegImageMetadata) metadata).getExif();
-				if (exif != null) {
-					outputSet = exif.getOutputSet();
-				}
-			}
-
-			// Write the processed image to target file with preserved orientation
-			try (OutputStream os = new FileOutputStream(target)) {
-				if (outputSet != null) {
-					new ExifRewriter().updateExifMetadataLossless(compressedStream, os, outputSet);
-				} else {
-					byte[] buffer = new byte[1024];
-					int length;
-					while ((length = compressedStream.read(buffer)) > 0) {
-						os.write(buffer, 0, length);
-					}
-				}
-			}
+		try {
+			Thumbnails.of(file)
+					.height(height)
+					.outputFormat("jpg")
+					.toFile(target);
 		} catch (Exception e) {
 			log.error("Problem while creating thumbnail of image {}", file.getAbsolutePath(), e);
+			Files.deleteIfExists(target.toPath());
 			Files.createSymbolicLink(target.toPath(), file.toPath());
 		}
 		return target;
-	}
-
-	public InputStream compress(BufferedImage bufferedImage, Double targetHeight) throws IOException {
-		var outputStream = new ByteArrayOutputStream();
-
-		double originalWidth = bufferedImage.getWidth();
-		double originalHeight = bufferedImage.getHeight();
-		double targetWidth = (originalWidth * targetHeight) / originalHeight;
-		ResampleOp resizeOp = new ResampleOp((int) targetWidth, targetHeight.intValue());
-		BufferedImage resizedImage = resizeOp.filter(bufferedImage, null);
-		ImageIO.write(resizedImage, "jpg", outputStream);
-		return new ByteArrayInputStream(outputStream.toByteArray());
 	}
 }
