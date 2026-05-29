@@ -227,8 +227,8 @@
 							<div class="grid-container" v-if="totalCurrentFiles > 0">
 								<div class="grid-item" v-for="row of this.tableDataFinal" v-if="!row.isDir">
 									<img :title="row.name"
-										v-lazy="'/apis/thumbnail?type=small&name=' + row.name + '&parent=' + encodeURIComponent(currentDir)"
-										v-img="{group :  'gallery', title: row.name, src : '/apis/thumbnail?type=large&name=' + row.name + '&parent=' + encodeURIComponent(currentDir), sourceButton: 'true', sourceButtonDownloadLink: '/apis/download?path=' + (currentDir == '/' ? '/' : encodeURIComponent(currentDir) + '/') + row.name}">
+										v-lazy="thumbnailUrl(row.name, 'small')"
+										v-img="{group :  'gallery', title: row.name, src : thumbnailUrl(row.name, 'large'), sourceButton: 'true', sourceButtonDownloadLink: downloadUrl(row.name)}">
 								</div>
 							</div>
 							<el-row v-if="totalCurrentFiles > 0"
@@ -468,12 +468,12 @@
 
 				playAudio(name) {
 					this.displayAudioPlayer = true;
-					this.audioSource = '/apis/music?path=' + (this.currentDir == '/' ? '/' : encodeURIComponent(this.currentDir) + '/') + name;
+					this.audioSource = this.musicUrl(name);
 				},
 
 				playVideo(name) {
 					this.displayVideoPlayer = true;
-					this.videoSource = '/apis/download?path=' + (this.currentDir == '/' ? '/' : encodeURIComponent(this.currentDir) + '/') + name;
+					this.videoSource = this.downloadUrl(name);
 				},
 
 				openLocalUploadDialog() {
@@ -924,7 +924,25 @@
 				},
 
 				download(name) {
-					document.location = '/apis/download?path=' + encodeURIComponent((this.currentDir == '/' ? '/' : this.currentDir + '/') + name);
+					document.location = this.downloadUrl(name);
+				},
+
+				filePath(name) {
+					return (this.currentDir == '/' ? '/' : this.currentDir + '/') + name;
+				},
+
+				downloadUrl(name) {
+					return '/apis/download?path=' + encodeURIComponent(this.filePath(name));
+				},
+
+				musicUrl(name) {
+					return '/apis/music?path=' + encodeURIComponent(this.filePath(name));
+				},
+
+				thumbnailUrl(name, type) {
+					return '/apis/thumbnail?type=' + encodeURIComponent(type)
+						+ '&name=' + encodeURIComponent(name)
+						+ '&parent=' + encodeURIComponent(this.currentDir);
 				},
 
 				newCommand(command) {
