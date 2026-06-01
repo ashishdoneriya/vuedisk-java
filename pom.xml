@@ -16,7 +16,7 @@
 	<properties>
 		<java.version>25</java.version>
 		<lombok.version>1.18.42</lombok.version>
-		<commons.io.version>2.11.0</commons.io.version>
+		<commons.io.version>2.14.0</commons.io.version>
 	</properties>
 	<dependencies>
 		<dependency>
