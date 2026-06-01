@@ -132,13 +132,11 @@
 									<template slot-scope="scope">
 										<div v-if="scope.row.isDir" @click="openDirFromList(scope.row.name)"
 											style="height:100%;width:100%;cursor:pointer">
-											<span class="fonts" style="font-weight: 500;"
-												@click="openDirFromList(scope.row.name)">{{ scope.row.name }}</span>
+											<span class="fonts" style="font-weight: 500;">{{ scope.row.name }}</span>
 										</div>
 										<div v-if="!scope.row.isDir" @click="viewFile(scope.row)"
 											style="height:100%;width:100%;cursor:pointer">
-											<span class="fonts" @click="viewFile(scope.row)">{{
-												scope.row.name}}</span>
+											<span class="fonts">{{ scope.row.name}}</span>
 										</div>
 									</template>
 								</el-table-column>
