@@ -123,6 +123,7 @@
 						<!-- FILES LISTING - LIST MODE start-->
 						<el-card v-show="displayMode == 'list'">
 							<el-table ref="multipleTable" :data="tableDataFinal" v-loading="isTableLoading"
+								:empty-text="listEmptyText"
 								style="width: 100%" @selection-change="handleSelectionChange" size="medium"
 								highlight-current-row>
 								<el-table-column type="selection" style="padding-left:0px !important" width="40">
@@ -199,7 +200,7 @@
 						<!-- FILES LISTING - LIST MODE end-->
 
 						<!-- FILES LISTING - GALLERY MODE start-->
-						<div v-if="displayMode == 'gallery'">
+						<div v-if="displayMode == 'gallery'" v-loading="isTableLoading" class="gallery-panel">
 							<el-row style="margin-bottom:20px" v-if="totalCurrentDirs > 0">
 								<span style="font-family:Roboto;font-size:18px;font-weight:400;color:#555">Folders
 								</span>
@@ -236,6 +237,10 @@
 							<el-row v-if="totalCurrentFiles > 0"
 								style="display: flex;flex-wrap: wrap;flex-flow: row wrap;justify-content: center;">
 							</el-row>
+							<div v-if="!isTableLoading && tableDataFinal.length == 0" class="empty-folder">
+								<i class="el-icon-folder-opened"></i>
+								<div>{{galleryEmptyText}}</div>
+							</div>
 						</div>
 						<!-- FILES LISTING - GALLERY MODE end-->
 					</el-col>
@@ -377,6 +382,20 @@
 						return 'calc(100% - 120px)';
 					}
 					return '900px';
+				},
+
+				listEmptyText() {
+					if (this.tableData.length == 0) {
+						return 'This folder is empty';
+					}
+					return 'No visible files';
+				},
+
+				galleryEmptyText() {
+					if (this.tableData.length == 0) {
+						return 'This folder is empty';
+					}
+					return 'No folders or images to show';
 				},
 
 				tableDataFinal() {
