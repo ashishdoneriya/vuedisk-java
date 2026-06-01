@@ -1,10 +1,10 @@
 package com.csetutorials.vuedisk.services;
 
-import org.springframework.stereotype.Service;
-
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
+
+import org.springframework.stereotype.Service;
 
 @Service
 public class ExtensionService {
@@ -16,7 +16,7 @@ public class ExtensionService {
 			"groovy", "h", "hpp", "hrl", "hs", "htaccess", "htm", "html", "inc", "j", "jade", "java", "jl", "js",
 			"json", "jsp", "kt", "liquid", "lisp", "log", "lsp", "lua", "m", "makefile", "md", "ml", "mli", "mm", "nim",
 			"pas", "php", "pl", "pp", "prg", "pro", "properties", "ps1", "psm1", "pwn", "py", "r", "rb", "rkt", "rs",
-			"rss", "sas", "sass", "scala", "scm", "scss", "sh", "sql", "st", "swift", "tcl", "text", "toml", "ts", "v",
+			"rss", "sas", "sass", "scala", "scm", "scss", "sh", "sql", "st", "swift", "tcl", "txt", "toml", "ts", "v",
 			"vb", "vh", "vhd", "vhdl", "vm", "vue", "xml", "xsl", "xstl", "yaml", "zsh"
 	));
 

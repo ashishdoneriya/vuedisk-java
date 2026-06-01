@@ -975,7 +975,7 @@
 				},
 
 				viewFile(row) {
-					if (row.isText || !row.isImage) {
+					if (row.isText) {
 						this.openTextFile(row.name);
 					} else {
 						this.download(row.name);
