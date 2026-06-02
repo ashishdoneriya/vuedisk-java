@@ -143,7 +143,7 @@
 									<template slot-scope="scope">
 										<div style="display:flex;align-items:center;justify-content:center">
 											<div style="flex:1">
-												<el-button v-if="scope.row.isAudio || scope.row.isVideo" size="mini"
+												<el-button v-if="scope.row.isAudio" size="mini"
 													@click="play(scope.row)">Play</el-button>
 											</div>
 											<div style="flex:1" v-if="!scope.row.isDir">
@@ -311,18 +311,28 @@
 		</el-dialog>
 		<!-- REMOTE FILE UPLOAD DIALOGUE end -->
 
-		<!-- VIDEO PLAYER DIALOGUE start -->
-		<el-dialog v-cloak :visible.sync="displayVideoPlayer">
-			<div style="width:100%;margin:0 auto;text-align:center">
-				<video width="400" controls ref="videoPlayer">
-					<source :src="videoSource" type="video/mp4"> Your browser does not support HTML5 video.
+		<!-- VIDEO PLAYER start -->
+		<div v-cloak v-if="displayVideoPlayer" class="image-viewer" @click.self="closeVideoPlayer()">
+			<div class="image-viewer-toolbar">
+				<div class="image-viewer-title" :title="videoTitle">{{videoTitle}}</div>
+				<div class="image-viewer-actions">
+					<button type="button" title="Download video" @click="download(videoTitle)">Download</button>
+					<button type="button" title="Close video player" @click="closeVideoPlayer()">Close</button>
+				</div>
+			</div>
+			<div class="image-viewer-stage">
+				<div v-if="videoLoading" class="image-viewer-loading">
+					<span class="image-loader-spinner image-viewer-spinner"></span>
+					<span>Loading...</span>
+				</div>
+				<video v-show="!videoLoading" class="image-viewer-media" controls ref="videoPlayer"
+					:src="videoSource" @loadeddata="videoLoading=false" @canplay="videoLoading=false"
+					@error="videoLoading=false">
+					Your browser does not support HTML5 video.
 				</video>
 			</div>
-			<span slot="footer" class="dialog-footer">
-				<el-button type="primary" @click="closeVideoPlayer()">Close</el-button>
-			</span>
-		</el-dialog>
-		<!-- VIDEO PLAYER DIALOGUE end -->
+		</div>
+		<!-- VIDEO PLAYER end -->
 
 		<file-uploader v-on:refresh="refresh()" :bus="fileUploaderBus" v-bind:current-dir="currentDir"></file-uploader>
 
@@ -395,15 +405,14 @@
 				tableData: [],
 				totalCurrentDirs: 0,
 				totalCurrentFiles: 0,
+				videoLoading: false,
 				videoSource: '',
+				videoTitle: '',
 				fileUploaderBus: new Vue()
 			},
 			watch: {
 				audioSource() {
 					this.$refs['audioPlayer'].load();
-				},
-				videoSource() {
-					this.$refs['videoPlayer'].load();
 				}
 			},
 			computed: {
@@ -540,6 +549,13 @@
 							return;
 						}
 
+						if (this.displayVideoPlayer) {
+							if (keyName == 'Escape') {
+								this.closeVideoPlayer();
+							}
+							return;
+						}
+
 						if (event.ctrlKey) {
 							keyName = keyName.toUpperCase();
 							if (keyName == 'X') {
@@ -587,6 +603,8 @@
 
 				playVideo(name) {
 					this.displayVideoPlayer = true;
+					this.videoLoading = true;
+					this.videoTitle = name;
 					this.videoSource = this.downloadUrl(name);
 				},
 
@@ -601,9 +619,13 @@
 				},
 
 				closeVideoPlayer() {
+					if (this.$refs.videoPlayer) {
+						this.$refs.videoPlayer.pause();
+					}
 					this.displayVideoPlayer = false;
+					this.videoLoading = false;
 					this.videoSource = '';
-					this.$refs.videoPlayer.load();
+					this.videoTitle = '';
 				},
 
 				extractUrlParam() {
@@ -1085,6 +1107,8 @@
 						this.openTextFile(row.name);
 					} else if (row.isImage) {
 						this.openImageViewer(null, row.name);
+					} else if (row.isVideo) {
+						this.playVideo(row.name);
 					} else {
 						this.download(row.name);
 					}
