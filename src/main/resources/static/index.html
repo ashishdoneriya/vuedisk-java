@@ -19,7 +19,6 @@
 	<script src="js/axios.min.js"></script>
 	<script src="js/cookies.min.js"></script>
 	<script src="js/vue-lazyload.js"></script>
-	<script src="js/v-img.min.js"></script>
 	<script src="js/httpVueLoader.js"></script>
 </head>
 
@@ -229,7 +228,7 @@
 									@click.capture="selectGalleryFile($event, row)">
 									<img :title="row.name"
 										v-lazy="thumbnailUrl(row.name, 'small')"
-										v-img="{group :  'gallery', title: row.name, src : thumbnailUrl(row.name, 'large'), sourceButton: 'true', sourceButtonDownloadLink: downloadUrl(row.name)}">
+										@click="openImageViewer($event, row.name)">
 								</div>
 							</div>
 							<el-row v-if="totalCurrentFiles > 0"
@@ -247,6 +246,30 @@
 			</el-main>
 		</el-container>
 		<!-- FILE MANAGER SCREEN end -->
+
+		<!-- CUSTOM IMAGE VIEWER start
+			Loads only the currently opened large thumbnail. The browser keeps the image aspect
+			ratio with object-fit: contain, so no server-side width/height metadata is needed. -->
+		<div v-if="imageViewerVisible" class="image-viewer" @click.self="closeImageViewer()">
+			<div class="image-viewer-toolbar">
+				<div class="image-viewer-title" :title="imageViewerTitle">{{imageViewerTitle}}</div>
+				<div class="image-viewer-actions">
+					<span class="image-viewer-counter">{{imageViewerCounter}}</span>
+					<button type="button" title="Download original image" @click="downloadImageViewerCurrent()">Download</button>
+					<button type="button" title="Close image viewer" @click="closeImageViewer()">Close</button>
+				</div>
+			</div>
+			<button type="button" class="image-viewer-nav image-viewer-prev" title="Previous image"
+				:disabled="!imageViewerHasPrevious" @click="previousImageViewerImage()">&lsaquo;</button>
+			<div class="image-viewer-stage">
+				<div v-if="imageViewerLoading" class="image-viewer-loading">Loading...</div>
+				<img v-show="!imageViewerLoading" :src="imageViewerSrc" :alt="imageViewerTitle"
+					@load="imageViewerLoading=false" @error="imageViewerLoading=false">
+			</div>
+			<button type="button" class="image-viewer-nav image-viewer-next" title="Next image"
+				:disabled="!imageViewerHasNext" @click="nextImageViewerImage()">&rsaquo;</button>
+		</div>
+		<!-- CUSTOM IMAGE VIEWER end -->
 
 		<!-- REMOTE FILE UPLOAD DIALOGUE start -->
 		<el-dialog v-cloak title="Remote File Upload" :visible.sync="remoteUploadDialog">
@@ -331,6 +354,9 @@
 				displayVideoPlayer: false,
 				firstTimeOpened: true,
 				hiddenFiles: false,
+				imageViewerIndex: 0,
+				imageViewerLoading: false,
+				imageViewerVisible: false,
 				isTableLoading: true,
 
 				multipleSelection: [],
@@ -424,6 +450,40 @@
 						return o1.name.localeCompare(o2.name);
 					});
 					return arrDir.concat(arrFile);
+				},
+
+				imageViewerImages() {
+					return this.tableDataFinal.filter(row => !row.isDir && row.isImage);
+				},
+
+				imageViewerCurrent() {
+					return this.imageViewerImages[this.imageViewerIndex] || null;
+				},
+
+				imageViewerSrc() {
+					if (!this.imageViewerCurrent) {
+						return '';
+					}
+					return this.thumbnailUrl(this.imageViewerCurrent.name, 'large');
+				},
+
+				imageViewerTitle() {
+					return this.imageViewerCurrent ? this.imageViewerCurrent.name : '';
+				},
+
+				imageViewerCounter() {
+					if (!this.imageViewerCurrent) {
+						return '';
+					}
+					return (this.imageViewerIndex + 1) + ' / ' + this.imageViewerImages.length;
+				},
+
+				imageViewerHasPrevious() {
+					return this.imageViewerIndex > 0;
+				},
+
+				imageViewerHasNext() {
+					return this.imageViewerIndex < this.imageViewerImages.length - 1;
 				}
 
 			},
@@ -442,6 +502,17 @@
 
 						if (keyName === 'Control') {
 							// do not alert when only Control key is pressed.
+							return;
+						}
+
+						if (this.imageViewerVisible) {
+							if (keyName == 'Escape') {
+								this.closeImageViewer();
+							} else if (keyName == 'ArrowLeft') {
+								this.previousImageViewerImage();
+							} else if (keyName == 'ArrowRight') {
+								this.nextImageViewerImage();
+							}
 							return;
 						}
 
@@ -977,8 +1048,49 @@
 				viewFile(row) {
 					if (row.isText) {
 						this.openTextFile(row.name);
+					} else if (row.isImage) {
+						this.openImageViewer(null, row.name);
 					} else {
 						this.download(row.name);
+					}
+				},
+
+				openImageViewer(event, name) {
+					if (event && this.isMultiSelectClick(event)) {
+						return;
+					}
+					var index = this.imageViewerImages.findIndex(row => row.name == name);
+					if (index == -1) {
+						return;
+					}
+					this.imageViewerIndex = index;
+					this.imageViewerLoading = true;
+					this.imageViewerVisible = true;
+				},
+
+				closeImageViewer() {
+					this.imageViewerVisible = false;
+				},
+
+				previousImageViewerImage() {
+					if (!this.imageViewerHasPrevious) {
+						return;
+					}
+					this.imageViewerLoading = true;
+					this.imageViewerIndex--;
+				},
+
+				nextImageViewerImage() {
+					if (!this.imageViewerHasNext) {
+						return;
+					}
+					this.imageViewerLoading = true;
+					this.imageViewerIndex++;
+				},
+
+				downloadImageViewerCurrent() {
+					if (this.imageViewerCurrent) {
+						this.download(this.imageViewerCurrent.name);
 					}
 				},
 
