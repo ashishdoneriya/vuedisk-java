@@ -168,6 +168,9 @@
 														<el-dropdown-item
 															:command="{command: 'download', row: scope.row}"
 															icon="el-icon-download">Download</el-dropdown-item>
+														<el-dropdown-item v-if="!scope.row.isDir"
+															:command="{command: 'open-as-text', row: scope.row}"
+															icon="el-icon-document">Open as Text</el-dropdown-item>
 														<el-dropdown-item :command="{command: 'cut', row: scope.row}"
 															icon="el-icon-scissors">Cut</el-dropdown-item>
 														<el-dropdown-item :command="{command: 'copy', row: scope.row}"
@@ -663,6 +666,8 @@
 						}).catch(() => { });
 					} else if (command == 'size') {
 						this.fetchSizeSse([name]);
+					} else if (command == 'open-as-text' && !obj.row.isDir) {
+						this.openTextFile(name);
 					} else if (command == 'delete') {
 						this.$confirm('Are you sure want to permanently delete ?', {
 							confirmButtonText: 'Yes',
