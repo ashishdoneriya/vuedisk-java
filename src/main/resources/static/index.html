@@ -228,10 +228,16 @@
 							<div class="grid-container" v-if="totalCurrentFiles > 0">
 								<div class="grid-item" v-for="row of this.tableDataFinal" v-if="!row.isDir"
 									:class="{'gallery-selected': isSelected(row.name)}"
-									@click.capture="selectGalleryFile($event, row)">
+									@click.capture="selectGalleryFile($event, row)"
+									@click="openImageViewer($event, row.name)">
+									<div v-if="isGalleryThumbnailLoading(row.name)" class="thumbnail-loader">
+										<span class="image-loader-spinner"></span>
+									</div>
 									<img :title="row.name"
 										v-lazy="thumbnailUrl(row.name, 'small')"
-										@click="openImageViewer($event, row.name)">
+										:class="{'thumbnail-loading': isGalleryThumbnailLoading(row.name)}"
+										@load="markGalleryThumbnailLoaded(row.name)"
+										@error="markGalleryThumbnailLoaded(row.name)">
 								</div>
 							</div>
 							<el-row v-if="totalCurrentFiles > 0"
@@ -265,7 +271,10 @@
 			<button type="button" class="image-viewer-nav image-viewer-prev" title="Previous image"
 				:disabled="!imageViewerHasPrevious" @click="previousImageViewerImage()">&lsaquo;</button>
 			<div class="image-viewer-stage">
-				<div v-if="imageViewerLoading" class="image-viewer-loading">Loading...</div>
+				<div v-if="imageViewerLoading" class="image-viewer-loading">
+					<span class="image-loader-spinner image-viewer-spinner"></span>
+					<span>Loading...</span>
+				</div>
 				<img v-show="!imageViewerLoading" :src="imageViewerSrc" :alt="imageViewerTitle"
 					@load="imageViewerLoading=false" @error="imageViewerLoading=false">
 			</div>
@@ -356,6 +365,7 @@
 				displayMode: 'list',
 				displayVideoPlayer: false,
 				firstTimeOpened: true,
+				galleryThumbnailLoaded: {},
 				hiddenFiles: false,
 				imageViewerIndex: 0,
 				imageViewerLoading: false,
@@ -1018,6 +1028,14 @@
 					this.toggleSelection(row.name);
 				},
 
+				isGalleryThumbnailLoading(name) {
+					return this.galleryThumbnailLoaded[name] !== true;
+				},
+
+				markGalleryThumbnailLoaded(name) {
+					this.$set(this.galleryThumbnailLoaded, name, true);
+				},
+
 				openDirFromList(name) {
 					if (this.currentDir == '/') {
 						this.openDir('/' + name);
@@ -1028,6 +1046,7 @@
 
 				openDir(path) {
 					this.isTableLoading = true;
+					this.galleryThumbnailLoaded = {};
 					this.multipleSelection = [];
 					window.history.replaceState('', 'File Manager', '?path=' + path);
 					axios.get('/apis/list?path=' + encodeURIComponent(path))
