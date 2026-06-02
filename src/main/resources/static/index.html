@@ -252,6 +252,17 @@
 					</el-col>
 				</el-row>
 				<!-- FILES LISTING end-->
+
+				<div class="shortcut-note">
+					<span class="shortcut-title">Shortcuts</span>
+					<span v-if="displayMode == 'gallery'">
+						<el-tag class="shortcut-key" size="mini" type="info">Ctrl</el-tag> + <el-tag class="shortcut-key" size="mini" type="info">Click</el-tag> Select
+					</span>
+					<span><el-tag class="shortcut-key" size="mini" type="info">Ctrl</el-tag> + <el-tag class="shortcut-key" size="mini" type="info">X</el-tag> Cut</span>
+					<span><el-tag class="shortcut-key" size="mini" type="info">Ctrl</el-tag> + <el-tag class="shortcut-key" size="mini" type="info">C</el-tag> Copy</span>
+					<span><el-tag class="shortcut-key" size="mini" type="info">Ctrl</el-tag> + <el-tag class="shortcut-key" size="mini" type="info">V</el-tag> Paste</span>
+					<span><el-tag class="shortcut-key" size="mini" type="info">Delete</el-tag> Delete</span>
+				</div>
 			</el-main>
 		</el-container>
 		<!-- FILE MANAGER SCREEN end -->

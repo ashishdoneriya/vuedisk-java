@@ -294,6 +294,29 @@ body {
   margin-bottom: 12px;
 }
 
+.shortcut-note {
+  margin: 22px 0 6px;
+  padding-top: 10px;
+  border-top: 1px solid #ebeef5;
+  color: #606266;
+  font-size: 13px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+.shortcut-title {
+  color: #303133;
+  font-weight: 500;
+}
+
+.shortcut-key.el-tag {
+  background: #f4f4f5;
+  border-color: #d3d4d6;
+  color: #3a3a3a;
+}
+
 .image-viewer {
   position: fixed;
   inset: 0;
