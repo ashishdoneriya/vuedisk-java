@@ -15,6 +15,7 @@ import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -26,6 +27,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -99,7 +101,9 @@ public class FileController {
 		Resource resource = new UrlResource(file.toPath().toUri());
 		HttpHeaders headers = new HttpHeaders();
 		headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-		headers.setContentDispositionFormData("attachment", file.getName());
+		headers.setContentDisposition(ContentDisposition.attachment()
+				.filename(file.getName(), StandardCharsets.UTF_8)
+				.build());
 		headers.setContentLength(file.length());
 		return ResponseEntity.ok().headers(headers).body(resource);
 	}
@@ -113,7 +117,9 @@ public class FileController {
 		Resource resource = new UrlResource(file.toPath().toUri());
 		HttpHeaders headers = new HttpHeaders();
 		headers.setContentType(MediaType.parseMediaType("audio/wav"));
-		headers.setContentDispositionFormData("attachment", file.getName());
+		headers.setContentDisposition(ContentDisposition.attachment()
+				.filename(file.getName(), StandardCharsets.UTF_8)
+				.build());
 		headers.setContentLength(file.length());
 		return ResponseEntity.ok().headers(headers).body(resource);
 	}
@@ -130,7 +136,9 @@ public class FileController {
 		Resource resource = new FileSystemResource(file);
 		HttpHeaders headers = new HttpHeaders();
 		headers.setContentType(MediaType.parseMediaType("image/jpeg"));
-		headers.setContentDispositionFormData("attachment", file.getName());
+		headers.setContentDisposition(ContentDisposition.attachment()
+				.filename(file.getName(), StandardCharsets.UTF_8)
+				.build());
 		headers.setContentLength(file.length());
 		return ResponseEntity.ok().headers(headers).body(resource);
 	}
